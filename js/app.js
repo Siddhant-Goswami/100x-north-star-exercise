@@ -258,7 +258,8 @@
         persist();
         updateContinueState();
       });
-      setTimeout(() => input.focus(), 0);
+      // Avoid auto-popping the keyboard (and the footer-hide) on phones.
+      if (!window.matchMedia('(max-width:900px)').matches) setTimeout(() => input.focus(), 0);
     }
   }
 
@@ -267,12 +268,50 @@
     if (node) node.textContent = message || '';
   }
 
+  function answerDisplay(question) {
+    const value = state.answers[question.id];
+    if (question.type === 'single') {
+      const option = (question.options || []).find(([optionValue]) => optionValue === value);
+      let label = option ? option[1] : '';
+      const other = state.answers[`${question.id}_other`];
+      if (question.other && value === 'else' && other) label += ` — ${other}`;
+      return label;
+    }
+    if (question.type === 'multi') {
+      const values = Array.isArray(value) ? value : [];
+      return (question.options || [])
+        .filter(([optionValue]) => values.includes(optionValue))
+        .map(([, label]) => label)
+        .join('; ');
+    }
+    return String(value || '').trim();
+  }
+
+  function buildAnswerReview() {
+    const rows = data.questions.map((question) => {
+      const stepIndex = steps.findIndex((step) => step.id === question.id);
+      const number = questionNumber.get(question.id);
+      const answer = answerDisplay(question);
+      const display = answer.length > 150 ? `${answer.slice(0, 150)}…` : answer;
+      return `<button class="review-item" type="button" data-step="${stepIndex}">
+        <span class="review-q">Question ${number}</span>
+        <span class="review-a">${escapeHtml(display) || '<em>—</em>'}</span>
+        <span class="review-edit">Edit</span>
+      </button>`;
+    }).join('');
+    return `<details class="answer-review">
+      <summary><span class="chev" aria-hidden="true">›</span> Review your answers <span class="rev-sub">${data.questions.length} questions</span></summary>
+      <div class="review-list">${rows}</div>
+    </details>`;
+  }
+
   function renderContact() {
     return `
       <section class="step">
         <span class="eyebrow">Your exercise is complete</span>
         <h1>Send it back to us, or bring it to your fit conversation.</h1>
         <p class="subtitle">We will read it the same way you wrote it, honestly, and tell you whether this is the right vehicle for the North Star you set. Add the name and WhatsApp number you signed up with.</p>
+        ${buildAnswerReview()}
         <form id="contactForm" class="contact-card" novalidate>
           <div class="form-grid">
             <div class="field full">
@@ -318,10 +357,17 @@
     const form = document.querySelector('#contactForm');
     const fields = ['fullName', 'phone', 'countryCode', 'consent'];
     fields.forEach((id) => {
-      document.querySelector(`#${id}`).addEventListener('change', saveContactDraft);
-      document.querySelector(`#${id}`).addEventListener('input', saveContactDraft);
+      const el = document.querySelector(`#${id}`);
+      el.addEventListener('change', saveContactDraft);
+      el.addEventListener('input', () => {
+        saveContactDraft();
+        el.classList.remove('is-error');
+      });
     });
     form.addEventListener('submit', submitExercise);
+    document.querySelectorAll('.review-item').forEach((btn) => {
+      btn.addEventListener('click', () => goTo(Number(btn.dataset.step)));
+    });
   }
 
   function saveContactDraft() {
@@ -342,6 +388,9 @@
     if (!normalizedPhone) errors.phone = 'Enter a valid WhatsApp number with country code.';
     if (!state.contact.consent) errors.consent = 'We need your consent to reach out about your fit conversation.';
     ['name', 'phone', 'consent'].forEach((id) => contactFieldError(id, errors[id]));
+    document.querySelector('#fullName').classList.toggle('is-error', Boolean(errors.name));
+    document.querySelector('#phone').classList.toggle('is-error', Boolean(errors.phone));
+    document.querySelector('#countryCode').classList.toggle('is-error', Boolean(errors.phone));
     return { errors, normalizedPhone };
   }
 
@@ -468,9 +517,9 @@
   }
 
   function updateContinueState() {
-    const step = steps[state.pos];
-    if (data.questions.includes(step)) continueButton.disabled = !valueIsComplete(step);
-    else continueButton.disabled = false;
+    // Keep Continue clickable so an empty answer gets a visible reason on click,
+    // instead of a silent disabled button.
+    continueButton.disabled = false;
   }
 
   function renderFooter() {
@@ -481,11 +530,15 @@
 
     backButton.style.visibility = state.pos === 0 ? 'hidden' : 'visible';
     backButton.onclick = () => goTo(state.pos - 1);
-    continueButton.textContent = state.pos === steps.length - 3 ? 'Send for review →' : 'Continue →';
+    continueButton.textContent = 'Continue →';
     continueButton.onclick = () => {
       if (data.questions.includes(step) && !valueIsComplete(step)) {
         const error = document.querySelector('#questionError');
-        error.textContent = 'Answer this question to continue.';
+        error.textContent = step.type === 'single' || step.type === 'multi'
+          ? 'Pick an option to continue.'
+          : 'Add your answer to continue.';
+        const field = document.querySelector('#answerInput');
+        if (field) field.focus();
         return;
       }
       unlockNext();
@@ -524,6 +577,11 @@
     menuButton.setAttribute('aria-expanded', String(open));
   });
   scrim.addEventListener('click', closeSidebar);
+  // On phones, hide the sticky footer while typing so the on-screen keyboard
+  // never covers the Continue button (CSS applies the hide only under 900px).
+  const isStageField = (target) => target && target.closest && target.closest('#stage') && /^(INPUT|TEXTAREA)$/.test(target.tagName);
+  document.addEventListener('focusin', (event) => { if (isStageField(event.target)) document.body.classList.add('kbd-typing'); });
+  document.addEventListener('focusout', (event) => { if (isStageField(event.target)) document.body.classList.remove('kbd-typing'); });
   document.querySelector('#resetBtn').addEventListener('click', () => {
     if (!window.confirm('Clear your answers and restart the exercise?')) return;
     localStorage.removeItem(STORAGE_KEY);

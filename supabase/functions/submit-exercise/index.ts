@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const productionOrigin = Deno.env.get('ALLOWED_ORIGIN') || '*';
+const productionOrigin = Deno.env.get('ALLOWED_ORIGIN') || 'https://100x-north-star-exercise.vercel.app';
 const assessmentVersion = 'north-star-v1';
 
 const corsHeaders = {

@@ -1,0 +1,9 @@
+{
+  "name": "north-star-exercise",
+  "private": true,
+  "scripts": {
+    "serve": "python3 -m http.server 4173",
+    "test": "node --test",
+    "check": "node --check js/config.js && node --check js/data.js && node --check js/engine.js && node --check js/app.js && node --test"
+  }
+}

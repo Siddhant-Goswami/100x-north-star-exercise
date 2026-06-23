@@ -103,9 +103,9 @@
       placeholder: 'The course you stopped, the project that fizzled, the moment you lost it.', maxLength: 900
     },
     {
-      id: 'stuck_on', module: 'gap', type: 'single',
+      id: 'stuck_on', module: 'gap', type: 'multi',
       title: 'Looking ahead at the next six months, what is the part you quietly suspect you will get stuck on?',
-      help: 'Pick the one that feels most true. We use it to set the right guardrail for you.',
+      help: 'Pick any that feel true — choose one or more. We use them to set the right guardrails for you.',
       other: true,
       options: [
         ['time', 'Time. I do not have enough hours in the day to keep up consistently.'],

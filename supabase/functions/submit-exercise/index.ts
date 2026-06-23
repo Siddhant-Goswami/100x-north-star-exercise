@@ -100,7 +100,8 @@ function scoreAssessment(answers: Record<string, unknown>) {
   if (answers.worst_week_hours === 'none') flags.push('no-worst-week-buffer');
   if (answers.weekly_hours === 'under2' && answers.worst_week_hours === 'none') flags.push('no-consistent-hours');
   if (stats.northStarClarity <= 2) flags.push('north-star-vague');
-  if (answers.stuck_on === 'time') flags.push('stuck-on-time');
+  const stuckList = Array.isArray(answers.stuck_on) ? answers.stuck_on : (answers.stuck_on ? [answers.stuck_on] : []);
+  if (stuckList.includes('time')) flags.push('stuck-on-time');
   if (answers.decision === 'unsure') flags.push('still-deciding');
   if (answers.decision === 'refine') flags.push('wants-to-refine');
 
@@ -138,9 +139,10 @@ function rankFitSignals(answers: Record<string, unknown>) {
     accountability: 'A mentor checks in on you, the kind of support most people miss when they go it alone.',
     else: 'A mentor checks the thread when you lose it, the exact failure mode most people name when they have tried this alone.'
   };
+  const stuckList = Array.isArray(answers.stuck_on) ? answers.stuck_on : (answers.stuck_on ? [answers.stuck_on] : []);
   const guardrail = {
     id: 'guardrail', label: 'A guardrail for where you stall',
-    description: guardrails[String(answers.stuck_on)] || guardrails.else
+    description: guardrails[String(stuckList[0])] || guardrails.else
   };
 
   return [track, rhythm, guardrail];

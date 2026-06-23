@@ -221,7 +221,7 @@
           </button>`;
         }).join('')}
       </div>
-      ${question.other && value === 'else' ? `<div class="other-field"><label class="label" for="otherInput">If something else, name it</label><input class="input" id="otherInput" maxlength="160" placeholder="Tell us in a few words" value="${escapeHtml(state.answers[`${question.id}_other`] || '')}" /></div>` : ''}`;
+      ${question.other && (Array.isArray(value) ? value.includes('else') : value === 'else') ? `<div class="other-field"><label class="label" for="otherInput">If something else, name it</label><input class="input" id="otherInput" maxlength="160" placeholder="Tell us in a few words" value="${escapeHtml(state.answers[`${question.id}_other`] || '')}" /></div>` : ''}`;
     } else {
       const tag = question.type === 'long' ? 'textarea' : 'input';
       if (tag === 'textarea') {
@@ -309,10 +309,13 @@
     }
     if (question.type === 'multi') {
       const values = Array.isArray(value) ? value : [];
-      return (question.options || [])
+      let label = (question.options || [])
         .filter(([optionValue]) => values.includes(optionValue))
-        .map(([, label]) => label)
+        .map(([, optionLabel]) => optionLabel)
         .join('; ');
+      const other = state.answers[`${question.id}_other`];
+      if (question.other && values.includes('else') && other) label += ` — ${other}`;
+      return label;
     }
     return String(value || '').trim();
   }

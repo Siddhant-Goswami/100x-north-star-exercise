@@ -85,15 +85,77 @@
     return html.replace(/SEGSLOT(\d+)END/g, (_, index) => slots[Number(index)]);
   }
 
-  // Full colour-coding for the result North Star: the LLM splits the statement
-  // into {text, part} tokens (time/role/thing/scale), matching the Q10 template.
-  // Falls back to time+scale auto-highlighting when segments are unavailable.
+  // Parse a template-style North Star ("By [time], I am [role] [doing thing]
+  // at [scale].") into coloured tokens client-side, so any statement gets the
+  // full Q10 colour treatment without needing the LLM to segment it. Returns
+  // null (and the caller degrades) when the statement does not fit the shape.
+  function segmentNorthStarHeuristic(statement) {
+    const text = String(statement || '').trim();
+    const am = /(^|[\s,])i\s*['’]?\s*a?m\s+/i.exec(text);
+    if (!am) return null;
+    const amEnd = am.index + am[0].length;
+    const head = text.slice(0, am.index);
+    const connector = text.slice(am.index, amEnd);
+    const tail = text.slice(amEnd);
+    const tokens = [];
+
+    // Head: optional "By " then the time horizon.
+    let rest = head;
+    const by = /^\s*by\s+/i.exec(rest);
+    if (by) { tokens.push({ text: rest.slice(0, by[0].length), part: '' }); rest = rest.slice(by[0].length); }
+    const headCore = rest.replace(/[,\s]+$/, '');
+    const headTrail = rest.slice(headCore.length);
+    if (headCore) tokens.push({ text: headCore, part: 'time' });
+    if (headTrail) tokens.push({ text: headTrail, part: '' });
+    tokens.push({ text: connector, part: '' });
+
+    // Tail: split off the scale (an "at/with/earning… <number>" clause).
+    let roleThing = tail;
+    let scaleConnector = '';
+    let scale = '';
+    const scaleRe = /\s(at|with|earning|making|for|generating|reaching|hitting|of)\s+/gi;
+    let match;
+    let scaleAt = -1;
+    while ((match = scaleRe.exec(tail))) {
+      if (/\d/.test(tail.slice(match.index))) { scaleAt = match.index; scaleConnector = match[0]; }
+    }
+    if (scaleAt >= 0) {
+      roleThing = tail.slice(0, scaleAt);
+      scale = tail.slice(scaleAt + scaleConnector.length);
+    }
+
+    // Role vs thing: split on the first gerund ("running", "building"…).
+    const doing = /\s(running|building|leading|doing|helping|making|growing|selling|shipping|launching|managing|creating|working|consulting|coaching|advising|operating|delivering|automating|teaching|writing)\b/i.exec(roleThing);
+    if (doing) {
+      const role = roleThing.slice(0, doing.index);
+      if (role.trim()) tokens.push({ text: role, part: 'role' });
+      tokens.push({ text: roleThing.slice(doing.index), part: 'thing' });
+    } else if (roleThing.trim()) {
+      tokens.push({ text: roleThing, part: 'role' });
+    }
+    if (scaleAt >= 0) {
+      tokens.push({ text: scaleConnector, part: '' });
+      const scaleCore = scale.replace(/[.\s]+$/, '');
+      const scaleTrail = scale.slice(scaleCore.length);
+      if (scaleCore) tokens.push({ text: scaleCore, part: 'scale' });
+      if (scaleTrail) tokens.push({ text: scaleTrail, part: '' });
+    }
+
+    // Only trust the parse if it reproduces the statement and found a role.
+    if (tokens.map((token) => token.text).join('') !== text) return null;
+    if (!tokens.some((token) => token.part === 'role')) return null;
+    return tokens;
+  }
+
+  // Full colour-coding for the North Star, matching the Q10 template. Prefers
+  // the LLM-provided segments, then a client-side parse, then time+scale only.
   function renderNorthStarSegments(roadmap, statement) {
-    const segments = roadmap && Array.isArray(roadmap.statementSegments) ? roadmap.statementSegments : null;
-    const valid = segments && segments.length
-      && segments.every((token) => token && typeof token.text === 'string')
-      && segments.map((token) => token.text).join('').replace(/\s/g, '').length >= statement.replace(/\s/g, '').length * 0.6;
-    if (!valid) return highlightNorthStar(statement);
+    const fromLlm = roadmap && Array.isArray(roadmap.statementSegments) ? roadmap.statementSegments : null;
+    const llmValid = fromLlm && fromLlm.length
+      && fromLlm.every((token) => token && typeof token.text === 'string')
+      && fromLlm.map((token) => token.text).join('').replace(/\s/g, '').length >= statement.replace(/\s/g, '').length * 0.6;
+    const segments = llmValid ? fromLlm : segmentNorthStarHeuristic(statement);
+    if (!segments) return highlightNorthStar(statement);
     const parts = new Set(['time', 'role', 'thing', 'scale']);
     return segments
       .map((token) => parts.has(token.part)
@@ -197,7 +259,7 @@
     return `
       <div class="ns-restate">
         <span class="ns-restate-label">Your North Star</span>
-        <p class="ns-restate-text">${highlightNorthStar(statement)}</p>
+        <p class="ns-restate-text">${renderNorthStarSegments(null, statement)}</p>
       </div>`;
   }
 

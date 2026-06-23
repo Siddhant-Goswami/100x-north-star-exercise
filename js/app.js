@@ -540,7 +540,12 @@
         <span class="eyebrow">How we would close the gap you described</span>
         <h2>If this is the right vehicle, here is the shape of it.</h2>
         <div class="fit-grid">
-          ${fitSignals.map((item) => `<article class="fit-card"><div class="fit-icon" aria-hidden="true">${icons[item.id] || '★'}</div><div><h3>${escapeHtml(item.label)}</h3><p>${escapeHtml(item.description)}</p></div></article>`).join('')}
+          ${fitSignals.map((item) => {
+            const body = Array.isArray(item.points) && item.points.length > 1
+              ? `<ul class="fit-points">${item.points.map((point) => `<li>${escapeHtml(point)}</li>`).join('')}</ul>`
+              : `<p>${escapeHtml(item.description)}</p>`;
+            return `<article class="fit-card"><div class="fit-icon" aria-hidden="true">${icons[item.id] || '★'}</div><div><h3>${escapeHtml(item.label)}</h3>${body}</div></article>`;
+          }).join('')}
         </div>
         <div class="next-box">
           <h3>Your next step</h3>

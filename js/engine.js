@@ -108,9 +108,17 @@
       else: 'A mentor checks the thread when you lose it, the exact failure mode most people name when they have tried this alone.'
     };
     const stuckList = Array.isArray(answers.stuck_on) ? answers.stuck_on : (answers.stuck_on ? [answers.stuck_on] : []);
+    const keys = stuckList.length ? stuckList : ['else'];
+    const points = [];
+    keys.forEach((key) => {
+      const description = guardrails[key] || guardrails.else;
+      if (!points.includes(description)) points.push(description);
+    });
     const guardrail = {
-      id: 'guardrail', label: 'A guardrail for where you stall',
-      description: guardrails[stuckList[0]] || guardrails.else
+      id: 'guardrail',
+      label: points.length > 1 ? 'Guardrails for where you stall' : 'A guardrail for where you stall',
+      description: points[0],
+      points
     };
 
     return [track, rhythm, guardrail];

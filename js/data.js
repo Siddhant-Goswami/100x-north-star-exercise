@@ -143,18 +143,6 @@
           { title: 'An honest gap', body: 'A clear view of what stands between you and it.' },
           { title: 'A fit read', body: 'A straight answer on whether we are the right way to close it.' }
         ]
-      },
-      {
-        id: 'how', module: 'context', type: 'intro',
-        eyebrow: 'How to do this well',
-        title: 'Take ten quiet minutes. Write the first true thing.',
-        subtitle: 'There are no wrong answers, and nothing here commits you to anything.',
-        body: 'The only thing that works against you is being aspirational instead of honest, especially about time. The clarity is yours to keep either way — even if you never enroll.',
-        promises: [
-          { title: 'Honest, not impressive', body: 'Write the first true thing, not the thing that sounds good.' },
-          { title: 'Saved as you go', body: 'Your answers stay on this device. Close the tab and come back anytime.' },
-          { title: 'Read by a human', body: 'We read it the same way you wrote it — honestly — before any fit conversation.' }
-        ]
       }
     ],
     modules: [

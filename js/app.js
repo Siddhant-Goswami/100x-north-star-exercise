@@ -18,6 +18,39 @@
     if (moduleStarts[step.module] === undefined) moduleStarts[step.module] = index;
   });
 
+  // ---- Analytics -----------------------------------------------------------
+  // Thin pass-through to window.Analytics (PostHog). Always safe: if analytics
+  // is not configured these calls quietly no-op. Event names use snake_case and
+  // are tagged with the exercise id so every funnel is filterable in PostHog.
+  const analytics = window.Analytics || { capture() {}, identify() {}, register() {}, reset() {} };
+  function track(event, properties) {
+    analytics.capture(event, Object.assign({ exercise_id: config.exerciseId }, properties || {}));
+  }
+  const moduleTitle = new Map(data.modules.map((module) => [module.id, module.title]));
+  function stepProps(index) {
+    const step = steps[index] || {};
+    return {
+      step_id: step.id,
+      step_type: step.type,
+      step_index: index,
+      module_id: step.module,
+      module_title: moduleTitle.get(step.module) || step.module,
+      question_number: questionNumber.get(step.id) || null,
+      total_steps: steps.length
+    };
+  }
+  let lastTrackedStep = -1;
+  function trackStepView() {
+    // render() fires on every keystroke/selection; only emit when the position
+    // actually changes so step_viewed maps cleanly to journey progression.
+    if (state.pos === lastTrackedStep) return;
+    lastTrackedStep = state.pos;
+    track('step_viewed', Object.assign(stepProps(state.pos), {
+      furthest_step: state.maxReached,
+      submitted: state.submitted
+    }));
+  }
+
   const state = loadState();
   state.answers = state.answers && typeof state.answers === 'object' ? state.answers : {};
   state.contact = state.contact && typeof state.contact === 'object' ? state.contact : {};
@@ -30,6 +63,17 @@
   state.roadmap = state.roadmap && typeof state.roadmap === 'object' ? state.roadmap : null;
   let pendingCelebration = false;
   if (!state.submitted && steps[state.pos].type === 'result') state.pos = steps.length - 2;
+
+  // Make the exercise/cohort queryable on every event, then mark how this
+  // session began: a fresh visitor, someone resuming saved progress, or a
+  // returning visitor who already submitted.
+  analytics.register({ exercise_id: config.exerciseId, cohort: config.cohortName });
+  const answeredCount = Object.keys(state.answers).length;
+  track(state.submitted ? 'exercise_revisited' : (answeredCount > 0 ? 'exercise_resumed' : 'exercise_started'), {
+    resumed_at_step: state.pos,
+    answers_so_far: answeredCount,
+    furthest_step: state.maxReached
+  });
 
   const stage = document.querySelector('#stage');
   const footer = document.querySelector('#stepFooter');
@@ -189,11 +233,41 @@
     stage.focus({ preventScroll: true });
   }
 
+  // Describe an answer for analytics WITHOUT leaking free-text PII: enum-style
+  // choices (single/multi) carry their option values; open text only reports
+  // length and whether it was filled in.
+  function answerProps(question) {
+    const value = state.answers[question.id];
+    const props = {
+      question_id: question.id,
+      question_number: questionNumber.get(question.id) || null,
+      question_type: question.type,
+      module_id: question.module
+    };
+    if (question.type === 'single') {
+      props.selected = value || null;
+    } else if (question.type === 'multi') {
+      props.selected = Array.isArray(value) ? value : [];
+      props.selected_count = props.selected.length;
+    } else {
+      props.answer_length = String(value || '').trim().length;
+      props.answered = Boolean(String(value || '').trim());
+    }
+    return props;
+  }
+
   function unlockNext() {
+    const leaving = steps[state.pos];
+    if (data.questions.includes(leaving)) {
+      track('question_answered', answerProps(leaving));
+    }
+    track('step_completed', stepProps(state.pos));
     const next = Math.min(steps.length - 1, state.pos + 1);
+    const reachedNew = next > state.maxReached;
     state.maxReached = Math.max(state.maxReached, next);
     state.pos = next;
     persist();
+    if (reachedNew) track('step_unlocked', stepProps(next));
     render();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     stage.focus({ preventScroll: true });
@@ -224,7 +298,10 @@
       button.disabled = !unlocked;
       if (currentModule === module.id) button.setAttribute('aria-current', 'step');
       button.innerHTML = `<span class="mod-num">${done ? '✓' : module.number}</span><span class="mod-label">${escapeHtml(module.title)}</span>`;
-      button.addEventListener('click', () => goTo(start));
+      button.addEventListener('click', () => {
+        track('module_opened', { module_id: module.id, module_title: module.title, via: 'sidebar_nav' });
+        goTo(start);
+      });
       nav.appendChild(button);
     });
   }
@@ -340,17 +417,27 @@
       document.querySelectorAll('.choice').forEach((button) => {
         button.addEventListener('click', () => {
           const option = button.dataset.value;
+          let action = 'select';
           if (question.type === 'single') {
             state.answers[question.id] = option;
           } else {
             let values = Array.isArray(state.answers[question.id]) ? [...state.answers[question.id]] : [];
-            values = values.includes(option) ? values.filter((item) => item !== option) : [...values, option];
+            const had = values.includes(option);
+            action = had ? 'deselect' : 'select';
+            values = had ? values.filter((item) => item !== option) : [...values, option];
             state.answers[question.id] = values;
           }
           persist();
+          track('option_selected', {
+            question_id: question.id,
+            question_number: questionNumber.get(question.id) || null,
+            option: option,
+            action: action
+          });
           // Refining the decision sends them back to edit the North Star itself.
           if (question.id === 'decision' && option === 'refine') {
             const target = steps.findIndex((step) => step.id === 'north_star');
+            track('north_star_refine_started', { from_step: state.pos });
             toast('Take another pass at your North Star, then continue.');
             goTo(target);
             return;
@@ -518,7 +605,11 @@
     });
     form.addEventListener('submit', submitExercise);
     document.querySelectorAll('.review-item').forEach((btn) => {
-      btn.addEventListener('click', () => goTo(Number(btn.dataset.step)));
+      btn.addEventListener('click', () => {
+        const target = Number(btn.dataset.step);
+        track('answer_review_clicked', stepProps(target));
+        goTo(target);
+      });
     });
   }
 
@@ -649,17 +740,22 @@
 
   async function submitExercise(event) {
     event.preventDefault();
+    track('submit_attempted', { elapsed_seconds: Math.max(1, Math.round((Date.now() - state.startedAt) / 1000)) });
     const answerErrors = engine.validateAnswers(state.answers, data.questions);
     if (Object.keys(answerErrors).length) {
       const firstId = Object.keys(answerErrors)[0];
       const firstIndex = steps.findIndex((step) => step.id === firstId);
+      track('submit_validation_failed', { scope: 'answers', fields: Object.keys(answerErrors), first_field: firstId });
       toast('One answer still needs your attention.');
       goTo(firstIndex);
       return;
     }
 
     const { errors, normalizedPhone } = validateContact();
-    if (Object.keys(errors).length) return;
+    if (Object.keys(errors).length) {
+      track('submit_validation_failed', { scope: 'contact', fields: Object.keys(errors) });
+      return;
+    }
 
     const honeypot = document.querySelector('#companyWebsite').value;
     const assessment = engine.scoreAssessment(state.answers);
@@ -720,10 +816,33 @@
         submittedAt: new Date().toISOString()
       }));
       pendingCelebration = true;
+
+      // The user consented to be contacted, so tie their journey to a stable
+      // identity (email) and record the completed funnel + outcome scores.
+      const email = String(state.contact.email || '').trim().toLowerCase();
+      if (email) {
+        analytics.identify(email, {
+          email: email,
+          name: state.contact.name.trim(),
+          cohort: config.cohortName,
+          last_exercise: config.exerciseId
+        });
+      }
+      track('exercise_submitted', {
+        submission_id: state.submissionId || null,
+        demo: Boolean(responseData.demo),
+        elapsed_seconds: payload.elapsedSeconds,
+        assessment_score: (state.assessment && (state.assessment.score ?? state.assessment.total)) || null,
+        assessment_tier: (state.assessment && (state.assessment.tier || state.assessment.band || state.assessment.label)) || null,
+        fit_signal_count: Array.isArray(state.fitSignals) ? state.fitSignals.length : null,
+        question_count: data.questions.length
+      });
+
       render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       stopThinking();
+      track('submission_failed', { message: (error && error.message) || 'unknown' });
       render();
       const errorBox = document.querySelector('#submitError');
       if (errorBox) {
@@ -804,7 +923,10 @@
     if (hidden) return;
 
     backButton.style.visibility = state.pos === 0 ? 'hidden' : 'visible';
-    backButton.onclick = () => goTo(state.pos - 1);
+    backButton.onclick = () => {
+      track('step_back', stepProps(state.pos));
+      goTo(state.pos - 1);
+    };
     continueButton.textContent = 'Continue →';
     continueButton.onclick = () => {
       if (data.questions.includes(step) && !valueIsComplete(step)) {
@@ -841,13 +963,17 @@
     if (data.questions.includes(step)) attachQuestionEvents(step);
     if (step.type === 'contact') attachContactEvents();
     if (step.type === 'result') {
-      document.querySelector('#printButton').addEventListener('click', () => window.print());
+      document.querySelector('#printButton').addEventListener('click', () => {
+        track('roadmap_printed', { submission_id: state.submissionId || null });
+        window.print();
+      });
       if (pendingCelebration) {
         pendingCelebration = false;
         fireConfetti();
       }
     }
     renderFooter();
+    trackStepView();
   }
 
   document.querySelector('#homeLink').addEventListener('click', () => goTo(0));
@@ -865,6 +991,8 @@
   document.addEventListener('focusout', (event) => { if (isStageField(event.target)) document.body.classList.remove('kbd-typing'); });
   document.querySelector('#resetBtn').addEventListener('click', () => {
     if (!window.confirm('Clear your answers and restart the exercise?')) return;
+    track('exercise_reset', { at_step: state.pos, answers_so_far: Object.keys(state.answers).length });
+    analytics.reset();
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(RECEIPT_KEY);
     window.location.reload();

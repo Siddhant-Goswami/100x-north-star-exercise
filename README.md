@@ -68,6 +68,42 @@ Use `public.north_star_submissions` in the Supabase dashboard. Relevant fields:
 RLS is enabled with no public table policies. Writes happen only through the
 Edge Function.
 
+## Analytics (PostHog)
+
+The full visitor journey is instrumented with [PostHog](https://posthog.com).
+It is **off until configured** — paste your project API key into the `posthog`
+block in `js/config.js`:
+
+```js
+posthog: {
+  key: 'phc_xxx',                  // PostHog project API key
+  host: 'https://us.i.posthog.com', // or https://eu.i.posthog.com
+  disableOnLocalhost: true          // keep dev traffic out of your data
+}
+```
+
+`js/analytics.js` lazy-loads the PostHog snippet and exposes a tiny, no-op-safe
+`window.Analytics` wrapper, so an empty key (or a blocked CDN) never breaks the
+exercise. No free-text answers or contact details are sent as event properties;
+the only personal data is an explicit `identify(email)` on a consented submit.
+
+Key events (all carry `exercise_id` and step/module context):
+
+| Event | When |
+| --- | --- |
+| `exercise_started` / `exercise_resumed` / `exercise_revisited` | first load, depending on saved progress |
+| `step_viewed` | every step a visitor lands on (deduped per position) |
+| `option_selected` | a single/multi choice is picked or cleared |
+| `question_answered`, `step_completed`, `step_unlocked` | advancing through the exercise |
+| `step_back`, `module_opened`, `answer_review_clicked` | backward / lateral navigation |
+| `north_star_refine_started` | the "refine my North Star" loop |
+| `submit_attempted`, `submit_validation_failed` | the contact-form submit funnel |
+| `exercise_submitted` / `submission_failed` | roadmap generated (with timing + scores) or errored |
+| `roadmap_printed`, `exercise_reset` | post-result actions |
+
+Build the funnel in PostHog from `exercise_started → step_completed (per module)
+→ submit_attempted → exercise_submitted` to see exactly where people drop.
+
 ## Admin panel
 
 `admin.html` is a token-gated dashboard for submissions, basic analytics, LLM API

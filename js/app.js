@@ -27,6 +27,8 @@
   state.submitted = Boolean(state.submitted);
   state.assessment = state.assessment || null;
   state.fitSignals = Array.isArray(state.fitSignals) ? state.fitSignals : null;
+  state.roadmap = state.roadmap && typeof state.roadmap === 'object' ? state.roadmap : null;
+  let pendingCelebration = false;
   if (!state.submitted && steps[state.pos].type === 'result') state.pos = steps.length - 2;
 
   const stage = document.querySelector('#stage');
@@ -60,6 +62,27 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  // Echo Q10's colour language back onto the user's own statement: tint any
+  // detected time marker and any number/scale, leave the rest plain.
+  function highlightNorthStar(statement) {
+    let html = escapeHtml(String(statement || '').trim());
+    if (!html) return '';
+    const slots = [];
+    const stash = (className, value) => {
+      // Token is wrapped in letters so the later number pass can't re-match it.
+      const token = 'SEGSLOT' + slots.length + 'END';
+      slots.push('<span class="seg ' + className + '">' + value + '</span>');
+      return token;
+    };
+    // Tint time markers first, then scale/numbers, stashing each so a later
+    // pass can never re-wrap text that is already highlighted.
+    html = html.replace(/\b(20\d\d|Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/gi,
+      (match) => stash('seg-time', match));
+    html = html.replace(/(\$\s?\d[\d,]*(?:\.\d+)?\s?[kKmM]?(?:\s?(?:\/|per )[a-z]+)?|\b\d[\d,]*(?:\.\d+)?\s?[kKmM]?\b)/g,
+      (match) => stash('seg-scale', match));
+    return html.replace(/SEGSLOT(\d+)END/g, (_, index) => slots[Number(index)]);
   }
 
   function toast(message) {
@@ -153,32 +176,11 @@
 
   function renderVehiclePanel() {
     const statement = String(state.answers.north_star || '').trim();
-    const quote = statement
-      ? `<div class="star-quote"><span>Your North Star</span><p>${escapeHtml(statement)}</p></div>`
-      : '';
+    if (!statement) return '';
     return `
-      ${quote}
-      <div class="vehicle-panel">
-        <div class="vehicle-cols">
-          <div class="vehicle-card good">
-            <h4><span aria-hidden="true">✓</span> This is built for you if</h4>
-            <ul>
-              <li>You learn by building, not by collecting tutorials you never finish.</li>
-              <li>You have a real goal — a job, a raise, a product, a client — and want AI to be the lever.</li>
-              <li>You can protect a small but consistent number of hours each week.</li>
-              <li>You are willing to ship something rough and improve it, instead of waiting until you feel ready.</li>
-            </ul>
-          </div>
-          <div class="vehicle-card warn">
-            <h4><span aria-hidden="true">→</span> This is probably not for you yet if</h4>
-            <ul>
-              <li>You want a certificate for a profile and nothing more.</li>
-              <li>You cannot find any consistent weekly hours in the next six months.</li>
-              <li>You want someone to build it for you, rather than learn to build it yourself.</li>
-              <li>You are looking for passive theory and not hands-on work.</li>
-            </ul>
-          </div>
-        </div>
+      <div class="ns-restate">
+        <span class="ns-restate-label">Your North Star</span>
+        <p class="ns-restate-text">${highlightNorthStar(statement)}</p>
       </div>`;
   }
 
@@ -338,12 +340,37 @@
     </details>`;
   }
 
+  function renderLockedPreview() {
+    const blurLines = [
+      'span-90', 'span-70', 'span-100', 'span-60'
+    ].map((cls) => `<span class="blur-line ${cls}"></span>`).join('');
+    return `
+      <div class="prescription-teaser" aria-hidden="true">
+        <div class="teaser-blur">
+          <span class="teaser-eyebrow">Your personalized roadmap</span>
+          <span class="blur-line span-80 strong"></span>
+          ${blurLines}
+          <div class="teaser-rows">
+            <div class="teaser-row"><span class="blur-dot"></span><span class="blur-line span-90"></span></div>
+            <div class="teaser-row"><span class="blur-dot"></span><span class="blur-line span-70"></span></div>
+            <div class="teaser-row"><span class="blur-dot"></span><span class="blur-line span-80"></span></div>
+          </div>
+        </div>
+        <div class="teaser-lock">
+          <div class="lock-badge">🔒</div>
+          <strong>Your roadmap is ready to generate</strong>
+          <span>Add your details below to unlock a plan built only for you — your milestones, your weekly rhythm, and exactly what it takes.</span>
+        </div>
+      </div>`;
+  }
+
   function renderContact() {
     return `
       <section class="step">
-        <span class="eyebrow">Your exercise is complete</span>
-        <h1>Send it back to us, or bring it to your fit conversation.</h1>
-        <p class="subtitle">We will read it the same way you wrote it, honestly, and tell you whether this is the right vehicle for the North Star you set. Add the name and WhatsApp number you signed up with.</p>
+        <span class="eyebrow">One last step · still free</span>
+        <h1>Unlock your personalized North Star roadmap.</h1>
+        <p class="subtitle">Your answers are done. Add your details and we will generate a roadmap built only for you — the milestones, the weekly rhythm, and the honest work it takes to reach the North Star you wrote.</p>
+        ${renderLockedPreview()}
         ${buildAnswerReview()}
         <form id="contactForm" class="contact-card" novalidate>
           <div class="form-grid">
@@ -351,6 +378,12 @@
               <label class="label" for="fullName">Your name</label>
               <input class="input" id="fullName" name="fullName" autocomplete="name" maxlength="100" value="${escapeHtml(state.contact.name || '')}" placeholder="Your full name" />
               <p class="field-error" data-error-for="name"></p>
+            </div>
+            <div class="field full">
+              <label class="label" for="email">Email</label>
+              <input class="input" id="email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="160" value="${escapeHtml(state.contact.email || '')}" placeholder="you@example.com" />
+              <p class="help">We send your roadmap here, and reach out about your fit conversation.</p>
+              <p class="field-error" data-error-for="email"></p>
             </div>
             <div class="field full">
               <label class="label" for="phone">WhatsApp number</label>
@@ -377,7 +410,7 @@
               <span>The clarity is yours to keep either way. Your answers are used for this review and are not displayed publicly.</span>
             </div>
             <div class="field full">
-              <button id="submitButton" class="btn btn--primary" type="submit">Send for review →</button>
+              <button id="submitButton" class="btn btn--primary" type="submit">Generate my roadmap →</button>
               <div id="submitStatus" class="submit-status" role="status" aria-live="polite"></div>
               <div id="submitError" class="error-summary" hidden></div>
             </div>
@@ -388,7 +421,7 @@
 
   function attachContactEvents() {
     const form = document.querySelector('#contactForm');
-    const fields = ['fullName', 'phone', 'countryCode', 'consent'];
+    const fields = ['fullName', 'email', 'phone', 'countryCode', 'consent'];
     fields.forEach((id) => {
       const el = document.querySelector(`#${id}`);
       el.addEventListener('change', saveContactDraft);
@@ -406,6 +439,7 @@
   function saveContactDraft() {
     state.contact = {
       name: document.querySelector('#fullName').value,
+      email: document.querySelector('#email').value,
       phone: document.querySelector('#phone').value,
       countryCode: document.querySelector('#countryCode').value,
       consent: document.querySelector('#consent').checked
@@ -413,18 +447,118 @@
     persist();
   }
 
+  function validEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(value || '').trim());
+  }
+
   function validateContact() {
     saveContactDraft();
     const errors = {};
     if (state.contact.name.trim().length < 2) errors.name = 'Enter the name you signed up with.';
+    if (!validEmail(state.contact.email)) errors.email = 'Enter a valid email so we can send your roadmap.';
     const normalizedPhone = engine.normalizePhone(state.contact.countryCode, state.contact.phone);
     if (!normalizedPhone) errors.phone = 'Enter a valid WhatsApp number with country code.';
     if (!state.contact.consent) errors.consent = 'We need your consent to reach out about your fit conversation.';
-    ['name', 'phone', 'consent'].forEach((id) => contactFieldError(id, errors[id]));
+    ['name', 'email', 'phone', 'consent'].forEach((id) => contactFieldError(id, errors[id]));
     document.querySelector('#fullName').classList.toggle('is-error', Boolean(errors.name));
+    document.querySelector('#email').classList.toggle('is-error', Boolean(errors.email));
     document.querySelector('#phone').classList.toggle('is-error', Boolean(errors.phone));
     document.querySelector('#countryCode').classList.toggle('is-error', Boolean(errors.phone));
     return { errors, normalizedPhone };
+  }
+
+  const THINKING_LINES = [
+    'Reading your North Star…',
+    'Mapping where you stand today…',
+    'Searching for what your goal really takes…',
+    'Sizing milestones to the hours you actually have…',
+    'Planning around the places you tend to stall…',
+    'Writing your roadmap…'
+  ];
+
+  function startThinking() {
+    stage.innerHTML = `
+      <section class="step thinking-step">
+        <div class="thinking-orb" aria-hidden="true"><span></span><span></span><span></span></div>
+        <span class="eyebrow">Generating your roadmap</span>
+        <h1 class="thinking-title">Building a plan only for you.</h1>
+        <p class="subtitle">This takes a few moments. We are reading everything you wrote and grounding the plan in what your North Star really takes.</p>
+        <ul class="thinking-lines" id="thinkingLines"></ul>
+      </section>`;
+    const list = document.querySelector('#thinkingLines');
+    let i = 0;
+    const add = () => {
+      if (!list || i >= THINKING_LINES.length) return;
+      const active = list.querySelector('.thinking-line.active');
+      if (active) {
+        active.classList.remove('active');
+        active.classList.add('done');
+        const mark = active.querySelector('.tl-mark');
+        if (mark) mark.textContent = '✓';
+      }
+      const li = document.createElement('li');
+      li.className = 'thinking-line active';
+      li.innerHTML = `<span class="tl-mark" aria-hidden="true"></span><span class="tl-text">${escapeHtml(THINKING_LINES[i])}</span>`;
+      list.appendChild(li);
+      i += 1;
+    };
+    add();
+    const timer = setInterval(add, 1400);
+    return () => clearInterval(timer);
+  }
+
+  function fireConfetti() {
+    if (window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'confetti-canvas';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const resize = () => {
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    const colors = ['#F96846', '#E8542F', '#2563EB', '#108A46', '#F5A623', '#1D1D1F'];
+    const pieces = Array.from({ length: 150 }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: -20 - Math.random() * window.innerHeight * 0.6,
+      r: 5 + Math.random() * 6,
+      c: colors[(Math.random() * colors.length) | 0],
+      vx: -2.4 + Math.random() * 4.8,
+      vy: 2.6 + Math.random() * 4,
+      rot: Math.random() * Math.PI,
+      vr: -0.22 + Math.random() * 0.44,
+      square: Math.random() < 0.5
+    }));
+    const DURATION = 2800;
+    const start = performance.now();
+    let raf = 0;
+    const tick = (now) => {
+      const elapsed = now - start;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      pieces.forEach((p) => {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.rot += p.vr;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.globalAlpha = Math.max(0, 1 - elapsed / DURATION);
+        ctx.fillStyle = p.c;
+        if (p.square) ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * 0.62);
+        else { ctx.beginPath(); ctx.arc(0, 0, p.r / 2, 0, Math.PI * 2); ctx.fill(); }
+        ctx.restore();
+      });
+      if (elapsed < DURATION) raf = requestAnimationFrame(tick);
+      else canvas.remove();
+    };
+    raf = requestAnimationFrame(tick);
+    window.addEventListener('resize', resize);
+    setTimeout(() => { cancelAnimationFrame(raf); canvas.remove(); }, DURATION + 600);
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async function submitExercise(event) {
@@ -441,20 +575,13 @@
     const { errors, normalizedPhone } = validateContact();
     if (Object.keys(errors).length) return;
 
-    const submitButton = document.querySelector('#submitButton');
-    const status = document.querySelector('#submitStatus');
-    const errorBox = document.querySelector('#submitError');
     const honeypot = document.querySelector('#companyWebsite').value;
-    submitButton.disabled = true;
-    submitButton.textContent = 'Sending…';
-    status.textContent = 'Saving your exercise for review.';
-    errorBox.hidden = true;
-
     const assessment = engine.scoreAssessment(state.answers);
     const fitSignals = engine.rankFitSignals(state.answers);
     const payload = {
       exerciseId: config.exerciseId,
       name: state.contact.name.trim(),
+      email: String(state.contact.email || '').trim(),
       phone: normalizedPhone,
       consent: true,
       answers: state.answers,
@@ -466,11 +593,16 @@
       website: honeypot
     };
 
+    // Swap the form for the thinking loader while the roadmap generates.
+    const stopThinking = startThinking();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const shownAt = Date.now();
+
     try {
       let responseData = null;
       if (config.allowLocalDemo && ['localhost', '127.0.0.1'].includes(window.location.hostname)) {
-        await new Promise((resolve) => setTimeout(resolve, 350));
-        responseData = { id: `local-${Date.now()}`, assessment, fitSignals, demo: true };
+        await delay(2600);
+        responseData = { id: `local-${Date.now()}`, assessment, fitSignals, roadmap: engine.buildRoadmap(state.answers, state.contact), demo: true };
       } else if (config.submissionEndpoint && !config.submissionEndpoint.includes('YOUR-PROJECT-REF')) {
         const response = await fetch(config.submissionEndpoint, {
           method: 'POST',
@@ -483,10 +615,16 @@
         throw new Error('Submissions are not configured yet. Please tell the 100x team.');
       }
 
+      // Let the loader breathe for a moment even on a fast response.
+      const shownFor = Date.now() - shownAt;
+      if (shownFor < 2200) await delay(2200 - shownFor);
+      stopThinking();
+
       state.submitted = true;
       state.submissionId = responseData.id;
       state.assessment = responseData.assessment || assessment;
       state.fitSignals = responseData.fitSignals || fitSignals;
+      state.roadmap = responseData.roadmap || engine.buildRoadmap(state.answers, state.contact);
       state.maxReached = steps.length - 1;
       state.pos = steps.length - 1;
       persist();
@@ -495,61 +633,65 @@
         exerciseId: config.exerciseId,
         submittedAt: new Date().toISOString()
       }));
+      pendingCelebration = true;
       render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
-      submitButton.disabled = false;
-      submitButton.textContent = 'Try again →';
-      status.textContent = '';
-      errorBox.textContent = error.message || 'Something went wrong. Your answers are still saved on this device.';
-      errorBox.hidden = false;
+      stopThinking();
+      render();
+      const errorBox = document.querySelector('#submitError');
+      if (errorBox) {
+        errorBox.textContent = error.message || 'Something went wrong. Your answers are still saved on this device.';
+        errorBox.hidden = false;
+      }
+      const submitButton = document.querySelector('#submitButton');
+      if (submitButton) submitButton.textContent = 'Try again →';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
 
   function renderResult() {
-    const assessment = state.assessment || engine.scoreAssessment(state.answers);
-    const fitSignals = state.fitSignals || engine.rankFitSignals(state.answers);
-    const s = assessment.stats;
-    const scores = [
-      ['North Star clarity', s.northStarClarity],
-      ['Outcome clarity', s.outcomeClarity],
-      ['Motivation depth', s.motivationDepth],
-      ['Gap honesty', s.gapHonesty],
-      ['Starting clarity', s.startingClarity],
-      ['Time realism', s.timeRealism],
-      ['Commitment signal', s.commitmentSignal]
-    ];
+    const roadmap = state.roadmap || engine.buildRoadmap(state.answers, state.contact);
     const firstName = escapeHtml((state.contact.name || '').trim().split(/\s+/)[0]);
-    const statement = String(state.answers.north_star || '').trim();
-    const icons = { track: '🎯', rhythm: '🗓️', guardrail: '🛟' };
+    const statement = String(roadmap.statement || state.answers.north_star || '').trim();
+    const headline = roadmap.headline
+      || (firstName ? `${firstName}, here is your path to your North Star.` : 'Here is your path to your North Star.');
+    const milestones = Array.isArray(roadmap.milestones) ? roadmap.milestones : [];
+    const why100x = Array.isArray(roadmap.why100x) ? roadmap.why100x : [];
 
     return `
       <section class="step result-step">
         <div class="result-head">
           <div>
-            <span class="result-badge">${escapeHtml(assessment.readinessState)}</span>
-            <h1>${firstName ? `${firstName}, your North Star is yours to keep.` : 'Your North Star is yours to keep.'}</h1>
-            <p class="subtitle">These scores describe how clear and honest your answers are right now. They help us decide what to talk through before we tell you, straight, whether we are the right vehicle.</p>
+            <span class="result-badge">Your personalized roadmap</span>
+            <h1>${escapeHtml(headline)}</h1>
           </div>
           <button id="printButton" class="btn btn--secondary" type="button">Print / save PDF</button>
         </div>
-        ${statement ? `<div class="star-quote"><span>Your North Star statement</span><p>${escapeHtml(statement)}</p></div>` : ''}
-        <div class="score-grid">
-          ${scores.map(([label, score]) => `<div class="score-card"><strong>${score}/5</strong><span>${escapeHtml(label)}</span><div class="score-bar"><i style="width:${score * 20}%"></i></div></div>`).join('')}
+        ${statement ? `<div class="ns-restate result-ns"><span class="ns-restate-label">Your North Star</span><p class="ns-restate-text">${highlightNorthStar(statement)}</p></div>` : ''}
+        ${roadmap.reality ? `<div class="reality-box"><span class="eyebrow">The honest read</span><p>${escapeHtml(roadmap.reality)}</p></div>` : ''}
+        ${roadmap.insight ? `<div class="insight-box"><span class="insight-tag">What we found</span><p>${escapeHtml(roadmap.insight)}</p></div>` : ''}
+        <span class="eyebrow">Your six-month path</span>
+        <h2>Simple milestones, sized to your life.</h2>
+        <div class="roadmap">
+          ${milestones.map((m) => `
+            <div class="day-card">
+              <div class="day-num">${escapeHtml(m.window || '')}</div>
+              <div>
+                <h3>${escapeHtml(m.title || '')}</h3>
+                <p>${escapeHtml(m.detail || '')}</p>
+              </div>
+            </div>`).join('')}
         </div>
-        <span class="eyebrow">How we would close the gap you described</span>
-        <h2>If this is the right vehicle, here is the shape of it.</h2>
+        ${roadmap.whatItTakes ? `<div class="takes-box"><h3>What it will take</h3><p>${escapeHtml(roadmap.whatItTakes)}</p></div>` : ''}
+        <span class="eyebrow">Why 100x is built for this</span>
+        <h2>How we would get you there faster.</h2>
         <div class="fit-grid">
-          ${fitSignals.map((item) => {
-            const body = Array.isArray(item.points) && item.points.length > 1
-              ? `<ul class="fit-points">${item.points.map((point) => `<li>${escapeHtml(point)}</li>`).join('')}</ul>`
-              : `<p>${escapeHtml(item.description)}</p>`;
-            return `<article class="fit-card"><div class="fit-icon" aria-hidden="true">${icons[item.id] || '★'}</div><div><h3>${escapeHtml(item.label)}</h3>${body}</div></article>`;
-          }).join('')}
+          ${why100x.map((item) => `<article class="fit-card"><div class="fit-icon" aria-hidden="true">★</div><div><h3>${escapeHtml(item.title || '')}</h3><p>${escapeHtml(item.detail || '')}</p></div></article>`).join('')}
         </div>
         <div class="next-box">
           <h3>Your next step</h3>
-          <p>Send this back to us, or bring it to your fit conversation. We will read it honestly and tell you whether this is the right vehicle for the North Star you set. If it is, we will show you exactly what your first thirty days look like. If it is not, we will point you somewhere better.</p>
+          <p>This roadmap is yours to keep, whatever you decide. If you want us to walk it with you, bring it to your fit conversation — we will tell you honestly whether 100x is the right vehicle for the North Star you set, and if it is not, we will point you somewhere better.</p>
         </div>
       </section>`;
   }
@@ -603,7 +745,13 @@
 
     if (data.questions.includes(step)) attachQuestionEvents(step);
     if (step.type === 'contact') attachContactEvents();
-    if (step.type === 'result') document.querySelector('#printButton').addEventListener('click', () => window.print());
+    if (step.type === 'result') {
+      document.querySelector('#printButton').addEventListener('click', () => window.print());
+      if (pendingCelebration) {
+        pendingCelebration = false;
+        fireConfetti();
+      }
+    }
     renderFooter();
   }
 

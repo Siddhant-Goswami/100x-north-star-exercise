@@ -196,13 +196,73 @@ body{overflow-x:hidden}
   .ns-ex:first-child{opacity:1}
 }
 
+/* Minimal restated North Star (Q13 + result), reusing Q10's seg colours */
+.ns-restate{background:var(--accent-tint);border:1px solid var(--accent-soft);border-radius:var(--r-lg);padding:20px 22px;margin:6px 0 26px}
+.ns-restate-label{display:block;font:600 11px var(--font-mono);text-transform:uppercase;letter-spacing:.09em;color:var(--accent-press);margin-bottom:12px}
+.ns-restate-text{margin:0;font-size:20px;line-height:1.85;font-weight:600;color:var(--fg)}
+.result-ns{margin:0 0 24px}
+
+/* Blurred, locked roadmap teaser on the contact step */
+.prescription-teaser{position:relative;border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin:8px 0 26px;background:#fff;box-shadow:var(--shadow-md)}
+.teaser-blur{padding:26px 28px;filter:blur(6px);user-select:none;opacity:.9;pointer-events:none}
+.teaser-eyebrow{display:block;font:600 11px var(--font-mono);text-transform:uppercase;letter-spacing:.09em;color:var(--accent-press);margin-bottom:16px}
+.blur-line{display:block;height:13px;border-radius:7px;background:linear-gradient(90deg,var(--surface-2),var(--border));margin:11px 0}
+.blur-line.strong{height:22px;background:linear-gradient(90deg,#ffd5c7,#ffb6a0)}
+.span-100{width:100%}.span-90{width:90%}.span-80{width:80%}.span-70{width:70%}.span-60{width:60%}
+.teaser-rows{margin-top:22px;display:grid;gap:15px}
+.teaser-row{display:flex;align-items:center;gap:14px}
+.teaser-row .blur-line{margin:0;flex:1}
+.blur-dot{width:34px;height:34px;border-radius:10px;background:var(--accent-tint);flex:0 0 auto}
+.teaser-lock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;padding:24px;background:rgba(255,255,255,.5)}
+.lock-badge{width:54px;height:54px;border-radius:50%;background:var(--accent);display:grid;place-items:center;font-size:24px;box-shadow:0 10px 24px rgba(249,104,70,.32);margin-bottom:4px}
+.teaser-lock strong{font-family:var(--font-display);font-size:19px;font-weight:650}
+.teaser-lock span{max-width:430px;font-size:14px;color:var(--fg-2);line-height:1.55}
+
+/* Claude-Code-style thinking loader while the roadmap generates */
+.thinking-step{text-align:center;max-width:640px}
+.thinking-orb{display:flex;gap:11px;justify-content:center;margin:0 auto 30px}
+.thinking-orb span{width:14px;height:14px;border-radius:50%;background:var(--accent);animation:orbPulse 1.2s var(--ease) infinite}
+.thinking-orb span:nth-child(2){animation-delay:.15s;background:var(--accent-hover)}
+.thinking-orb span:nth-child(3){animation-delay:.3s;background:var(--accent-press)}
+@keyframes orbPulse{0%,100%{transform:scale(.55);opacity:.35}50%{transform:scale(1);opacity:1}}
+.thinking-title{font-size:42px}
+.thinking-lines{list-style:none;margin:32px auto 0;padding:0;max-width:460px;text-align:left;display:flex;flex-direction:column;gap:13px}
+.thinking-line{display:flex;align-items:center;gap:13px;font-size:15.5px;color:var(--fg-2);animation:step-in .4s var(--ease)}
+.thinking-line .tl-mark{width:20px;height:20px;border-radius:50%;border:2px solid var(--accent-soft);border-top-color:var(--accent);display:grid;place-items:center;font-size:11px;color:var(--success);flex:0 0 auto;animation:spin .8s linear infinite}
+.thinking-line.done{color:var(--fg)}
+.thinking-line.done .tl-mark{border:2px solid var(--success);background:var(--success-tint);animation:none}
+.thinking-line.active .tl-text{color:var(--fg);font-weight:500}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Celebration confetti */
+.confetti-canvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:200}
+
+/* Personalized roadmap result blocks */
+.reality-box{border-left:3px solid var(--accent);background:var(--surface-1);border-radius:0 var(--r-lg) var(--r-lg) 0;padding:18px 22px;margin:0 0 26px}
+.reality-box .eyebrow{display:block;margin-bottom:9px}
+.reality-box p{margin:0;font-size:16px;line-height:1.62;color:var(--fg)}
+.insight-box{background:#eef4ff;border:1px solid #d7e3ff;border-radius:var(--r-lg);padding:16px 20px;margin:0 0 26px}
+.insight-tag{display:inline-block;font:600 11px var(--font-mono);text-transform:uppercase;letter-spacing:.08em;color:#1d4ed8;margin-bottom:8px}
+.insight-box p{margin:0;font-size:14.5px;line-height:1.6;color:var(--fg-2)}
+.takes-box{background:var(--accent-tint);border-radius:var(--r-xl);padding:24px;margin:28px 0}
+.takes-box h3{font-family:var(--font-display);margin:0 0 8px;font-weight:650}
+.takes-box p{margin:0;color:var(--fg-2);line-height:1.62}
+.result-step .roadmap{margin:18px 0 0}
+.result-step .day-card{grid-template-columns:120px 1fr;align-items:start}
+.result-step .day-num{width:auto;height:auto;border-radius:var(--r-pill);padding:8px 13px;font-size:11px;line-height:1.3;white-space:nowrap;align-self:start;background:var(--accent);color:var(--fg)}
+
 @media(max-width:560px){
   .vehicle-cols{grid-template-columns:1fr}
   .fit-card{grid-template-columns:44px 1fr;padding:15px;gap:12px}
   .fit-icon{width:42px;height:42px}
   .ns-template p{line-height:2.2}
+  .ns-restate-text{font-size:18px}
+  .thinking-title{font-size:32px}
+  .result-step .day-card{grid-template-columns:1fr;gap:10px}
+  .result-step .day-num{justify-self:start}
 }
 @media print{
-  .star-quote{break-inside:avoid}
-  .fit-card,.vehicle-card{break-inside:avoid}
+  .star-quote,.ns-restate{break-inside:avoid}
+  .fit-card,.vehicle-card,.day-card,.takes-box,.reality-box{break-inside:avoid}
+  .prescription-teaser,.confetti-canvas{display:none!important}
 }

@@ -67,6 +67,25 @@ test('fit signals always return a track, rhythm, and guardrail and respond to th
   assert.match(career[2].description, /checks in on you/);
 });
 
+test('buildRoadmap returns a personalized fallback roadmap shaped for the result page', () => {
+  const builder = engine.buildRoadmap(answers({ path: 'build' }), { name: 'Asha Rao' });
+  assert.equal(builder.generatedBy, 'fallback');
+  assert.match(builder.headline, /^Asha,/);
+  assert.equal(builder.statement, answers().north_star);
+  assert.ok(Array.isArray(builder.milestones) && builder.milestones.length >= 3);
+  builder.milestones.forEach((m) => {
+    assert.ok(m.window && m.title && m.detail);
+  });
+  assert.ok(builder.whatItTakes.includes('5–7 hours a week'));
+  assert.equal(builder.why100x.length, 3);
+  assert.match(builder.why100x[0].title, /shipping your own thing/);
+
+  // The career path leads with hireable proof instead of shipping a product.
+  const career = engine.buildRoadmap(answers({ path: 'job', stuck_on: ['confidence', 'accountability'] }), {});
+  assert.match(career.why100x[0].title, /hireable proof/);
+  assert.ok(career.why100x.some((w) => /technical enough/.test(w.detail)));
+});
+
 test('hasTimeAndScale recognises a concrete time horizon and a number', () => {
   assert.equal(engine.hasTimeAndScale('By December 2026 I run a $5k/month practice'), true);
   assert.equal(engine.hasTimeAndScale('someday I want to be better'), false);

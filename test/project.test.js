@@ -30,10 +30,18 @@ test('questions do not enforce minimum response lengths', () => {
   assert.doesNotMatch(sources, /minLength|Add a little more detail|at least \d+ characters/);
 });
 
-test('the result reflects the participant North Star statement back to them', () => {
+test('the result reflects the participant North Star back to them', () => {
   const app = fs.readFileSync('js/app.js', 'utf8');
-  assert.match(app, /Your North Star statement/);
+  assert.match(app, /Your North Star/);
   assert.match(app, /state\.answers\.north_star/);
+});
+
+test('the result page shows a personalized roadmap, not clarity scores', () => {
+  const app = fs.readFileSync('js/app.js', 'utf8');
+  // The roadmap replaced the 7-score grid and generic readiness copy.
+  assert.match(app, /Your personalized roadmap/);
+  assert.match(app, /roadmap\.milestones/);
+  assert.doesNotMatch(app, /These scores describe how clear and honest/);
 });
 
 test('the Edge Function recomputes the assessment and upserts the unique exercise phone', () => {

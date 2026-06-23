@@ -124,6 +124,77 @@
     return [track, rhythm, guardrail];
   }
 
+  // A deterministic, personalized roadmap used as the fallback when the
+  // LLM-generated roadmap is unavailable (no API key, rate limit, or error).
+  // The server returns a richer version; this keeps the experience whole.
+  function buildRoadmap(answers, contact) {
+    answers = answers || {};
+    contact = contact || {};
+    const name = text(contact.name).split(/\s+/)[0];
+    const statement = text(answers.north_star);
+    const isBuild = answers.path === 'build';
+    const hours = WEEKLY_HOURS[answers.weekly_hours] || WEEKLY_HOURS['2-4'];
+    const stuckList = Array.isArray(answers.stuck_on)
+      ? answers.stuck_on
+      : (answers.stuck_on ? [answers.stuck_on] : []);
+
+    const headline = name
+      ? `${name}, here is the shortest honest path to your North Star.`
+      : 'Here is the shortest honest path to your North Star.';
+
+    const reality = isBuild
+      ? 'You do not need a bigger idea — you need one small thing shipped in front of one real user, then improved every week. The gap is not talent or tools; it is reps. This plan turns six months into a stack of small, finished reps instead of one heroic project you never launch.'
+      : 'You do not need another certificate — you need proof. A few real things you built with AI, explained well, move you further than any course logo on a profile. This plan is built to produce that proof, one shipped piece at a time, sized to the time you actually have.';
+
+    const milestones = isBuild
+      ? [
+          { window: 'Weeks 1–4', title: 'Ship the smallest real version', detail: `Pick the narrowest slice of your idea and get a working version in front of one real person. Sized to ${hours.label}, so finishing is normal, not heroic.` },
+          { window: 'Weeks 5–10', title: 'Put it in front of users and listen', detail: 'Get five to ten people using it. Their friction — not your roadmap — tells you what to build next. You learn to read signal instead of guessing.' },
+          { window: 'Weeks 11–18', title: 'Earn the first signal of demand', detail: 'Turn use into a waitlist, a first payment, or a committed pilot. The goal is one undeniable proof that someone wants this enough to act.' },
+          { window: 'Weeks 19–26', title: 'Make it repeatable', detail: 'Tighten the loop from idea to shipped feature so you can keep moving after the program ends — running your thing, not just having built it once.' }
+        ]
+      : [
+          { window: 'Weeks 1–4', title: 'Build your first AI proof piece', detail: `Ship one small, real project that uses AI to solve an actual problem at work or in your field. Sized to ${hours.label}, so it gets finished.` },
+          { window: 'Weeks 5–10', title: 'Make it visible and useful', detail: 'Put your work where the right people see it — a demo for your team, a post, a portfolio piece — so the value is obvious without you explaining it twice.' },
+          { window: 'Weeks 11–18', title: 'Stack two or three undeniable wins', detail: 'Repeat the loop until you have a small body of work that proves you can apply AI, not just talk about it. This is what changes the conversation about a job, raise, or role.' },
+          { window: 'Weeks 19–26', title: 'Turn proof into the ask', detail: 'Use the evidence you built to make the move — the pitch, the internal project, the interview — backed by things you actually shipped.' }
+        ];
+
+    const whatItTakes = `Honestly? About ${hours.label}, protected and consistent. Not bursts of motivation — a rhythm that survives your worst weeks. Six months of small finished reps beats two months of heroics followed by a stall. If you can guard those hours, this is very doable.`;
+
+    const whyMap = {
+      time: { title: 'Sized to your real hours', detail: `Your weekly goals are built around the ${hours.label} you reported, so consistency beats intensity and finishing stays the normal case.` },
+      confidence: { title: 'You build from day one, with a mentor', detail: 'You prove you are technical enough by doing — not by guessing today. A mentor is there for the hard parts so you do not stall on them alone.' },
+      clarity: { title: 'A mentor keeps the thread', detail: 'The moment you lose the plot — the exact failure mode you named — someone is there to point you back at the next concrete step.' },
+      momentum: { title: 'Visible wins, early and often', detail: 'You ship something rough early and improve it, so progress stays visible instead of feeling slow or invisible.' },
+      accountability: { title: 'Someone is actually checking in', detail: 'The weekly check-in is the support most people miss when they try this alone — and the reason they finish here.' }
+    };
+    const seen = new Set();
+    const why100x = [isBuild
+      ? { title: 'Built around shipping your own thing', detail: 'The whole program is structured to get you running a product, tool, or first paying client — exactly the outcome you chose.' }
+      : { title: 'Built around real, hireable proof', detail: 'The program is structured to produce work that gets you hired, promoted, or raised — with AI as the lever, exactly the outcome you chose.' }];
+    seen.add(why100x[0].title);
+    (stuckList.length ? stuckList : ['time']).forEach((key) => {
+      const item = whyMap[key];
+      if (item && !seen.has(item.title)) { seen.add(item.title); why100x.push(item); }
+    });
+    while (why100x.length < 3) {
+      const fill = whyMap.accountability;
+      if (seen.has(fill.title)) break;
+      seen.add(fill.title); why100x.push(fill);
+    }
+
+    return {
+      generatedBy: 'fallback',
+      headline,
+      statement,
+      reality,
+      milestones,
+      whatItTakes,
+      why100x: why100x.slice(0, 3)
+    };
+  }
+
   function normalizePhone(countryCode, phone) {
     const codeDigits = text(countryCode).replace(/\D/g, '');
     let phoneDigits = text(phone).replace(/\D/g, '');
@@ -145,5 +216,5 @@
     return errors;
   }
 
-  return { scoreAssessment, rankFitSignals, normalizePhone, validateAnswers, hasTimeAndScale };
+  return { scoreAssessment, rankFitSignals, buildRoadmap, normalizePhone, validateAnswers, hasTimeAndScale };
 });

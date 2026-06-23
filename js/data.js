@@ -121,7 +121,7 @@
     {
       id: 'decision', module: 'vehicle', type: 'single',
       title: 'Re-read your North Star statement. Does it still feel true, and worth six months of effort?',
-      help: 'Read the two columns above against the answers you just wrote, then answer honestly. We would rather you not join than join, stall, and resent it.',
+      help: 'Read it slowly against everything you just wrote, then answer honestly. We would rather you not join than join, stall, and resent it.',
       vehicle: true,
       options: [
         ['yes', 'Yes, this is the one.'],
@@ -134,14 +134,14 @@
     introSteps: [
       {
         id: 'welcome', module: 'context', type: 'intro',
-        eyebrow: '100x Engineers · Cohort 8',
-        title: 'Before you decide, find your North Star.',
-        subtitle: 'A clarity exercise to find your North Star, and to see if we are the right vehicle to reach it.',
-        body: 'You are trying to answer one question: is this program worth your time, your money, and the next six months of effort. This is built to help you answer it honestly, before you pay anything.',
+        eyebrow: '100x Engineers · Cohort 8 · Free',
+        title: 'Get your personalized AI roadmap. Free.',
+        subtitle: 'Answer a few honest questions and walk away with a roadmap built only for you — the exact milestones, the weekly rhythm, and the real work it takes to get from where you are today to where you want to be in six months.',
+        body: 'It takes about ten minutes. No payment, no commitment, no sales pitch hiding in the questions. At the end you get a clear plan you can act on whether or not you ever join us — and a straight read on whether 100x is the right vehicle to get you there.',
         promises: [
-          { title: 'A written North Star', body: 'A concrete statement of where you want to be in six months.' },
-          { title: 'An honest gap', body: 'A clear view of what stands between you and it.' },
-          { title: 'A fit read', body: 'A straight answer on whether we are the right way to close it.' }
+          { title: 'A written North Star', body: 'A concrete statement of exactly where you want to be in six months — in your own words.' },
+          { title: 'A personalized roadmap', body: 'Simple milestones sized to the hours you actually have, plus an honest look at what it really takes.' },
+          { title: 'A straight fit read', body: 'Whether 100x can get you there faster — and if we are not the right fit, we will tell you so.' }
         ]
       }
     ],

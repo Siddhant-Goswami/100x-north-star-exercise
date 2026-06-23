@@ -5,7 +5,12 @@ const assessmentVersion = 'north-star-v1';
 
 // Roadmap generation (OpenAI). The key lives only as a Supabase secret; the
 // model and limits are overridable via env so they can be tuned without a deploy.
-const openAiKey = Deno.env.get('OPENAI_API_KEY');
+// Read the key per-request (not at module load) so a freshly-set secret is
+// picked up by every isolate, including ones that booted before it existed.
+// Strip ALL whitespace: a pasted key often gets line-wrapped, and a stray
+// newline makes an invalid HTTP header value (fetch throws). Keys never
+// contain whitespace, so this is safe and saves a re-paste.
+const getOpenAiKey = () => (Deno.env.get('OPENAI_API_KEY') || '').replace(/\s+/g, '');
 const openAiModel = Deno.env.get('OPENAI_MODEL') || 'gpt-5.4-mini';
 const maxRoadmapsPerIpPerDay = Number(Deno.env.get('MAX_ROADMAPS_PER_IP') || 5);
 const ipHashSalt = Deno.env.get('IP_HASH_SALT') || 'north-star-cohort-8';
@@ -340,6 +345,7 @@ function coerceRoadmap(raw: unknown, answers: Record<string, unknown>, name: str
 }
 
 async function generateRoadmapWithOpenAI(answers: Record<string, unknown>, name: string): Promise<Roadmap | null> {
+  const openAiKey = getOpenAiKey();
   if (!openAiKey) return null;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 60_000);
@@ -385,6 +391,26 @@ async function generateRoadmapWithOpenAI(answers: Record<string, unknown>, name:
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  // Safe health check: reports only whether config is wired, never any secret value.
+  // ?check=openai also pings OpenAI auth and returns the HTTP status (no secret).
+  if (request.method === 'GET') {
+    const key = getOpenAiKey();
+    const url = new URL(request.url);
+    let openAiCheck: unknown = 'skipped';
+    if (url.searchParams.get('check') === 'openai' && key) {
+      try {
+        const ping = await fetch('https://api.openai.com/v1/models', {
+          headers: { Authorization: `Bearer ${key}` }
+        });
+        const redact = (s: string) => s.replace(/sk-[A-Za-z0-9_\-]+/g, 'sk-***');
+        const bodyText = ping.ok ? '' : redact((await ping.text().catch(() => '')).slice(0, 300));
+        openAiCheck = { status: ping.status, ok: ping.ok, error: bodyText };
+      } catch (error) {
+        openAiCheck = { status: 0, ok: false, error: String(error).replace(/sk-[A-Za-z0-9_\-]+/g, 'sk-***').slice(0, 200) };
+      }
+    }
+    return json({ ok: true, hasOpenAiKey: Boolean(key), keyLength: key.length, model: openAiModel, maxRoadmapsPerIp: maxRoadmapsPerIpPerDay, openAiCheck });
+  }
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
   const requestOrigin = request.headers.get('origin');
   if (productionOrigin !== '*' && requestOrigin && requestOrigin !== productionOrigin) {
@@ -480,7 +506,7 @@ Deno.serve(async (request) => {
   // 3) Generate. LLM when allowed and configured, deterministic otherwise.
   let freshlyGenerated = false;
   if (!roadmap) {
-    if (!rateLimited && openAiKey) {
+    if (!rateLimited && getOpenAiKey()) {
       roadmap = await generateRoadmapWithOpenAI(answers, name);
     }
     if (!roadmap) roadmap = buildRoadmap(answers, name);

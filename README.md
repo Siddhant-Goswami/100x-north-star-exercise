@@ -67,3 +67,11 @@ Use `public.north_star_submissions` in the Supabase dashboard. Relevant fields:
 
 RLS is enabled with no public table policies. Writes happen only through the
 Edge Function.
+
+## Admin panel
+
+`admin.html` is a token-gated dashboard for submissions, basic analytics, LLM API
+cost, and free-tier (Supabase / Vercel) headroom — including when usage will force
+an upgrade off the free plans. It is backed by the `admin-data` Edge Function and
+the `admin_dashboard_stats` RPC. Set the `ADMIN_TOKEN` secret to enable it. See
+[ADMIN.md](ADMIN.md) for setup and what each panel means.

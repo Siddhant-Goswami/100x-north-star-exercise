@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Admin · North Star</title>
+  <link rel="stylesheet" href="css/tokens.css" />
+  <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+  <!-- Token gate. Shown until a valid admin token unlocks the dashboard. -->
+  <div id="gate" class="gate">
+    <form id="gateForm" class="gate__card">
+      <p class="eyebrow">100x · Internal</p>
+      <h1 class="gate__title">North Star admin</h1>
+      <p class="caption gate__hint">Enter the admin token to view submissions, LLM cost, and scale.</p>
+      <label class="label" for="tokenInput">Admin token</label>
+      <input id="tokenInput" class="input" type="password" autocomplete="off" placeholder="paste ADMIN_TOKEN" />
+      <p id="gateError" class="field-error" hidden></p>
+      <button id="gateSubmit" class="btn btn--primary" type="submit" style="margin-top:14px;width:100%">Unlock</button>
+    </form>
+  </div>
+
+  <!-- Dashboard. Populated by js/admin.js after auth. -->
+  <main id="dash" class="dash" hidden>
+    <header class="dash__top">
+      <div>
+        <p class="eyebrow">100x · North Star admin</p>
+        <h1 class="dash__h1">Submissions &amp; cost</h1>
+        <p id="metaLine" class="caption"></p>
+      </div>
+      <div class="dash__actions">
+        <button id="refreshBtn" class="btn btn--secondary btn--sm" type="button">Refresh</button>
+        <button id="csvBtn" class="btn btn--secondary btn--sm" type="button">Export CSV</button>
+        <button id="logoutBtn" class="btn btn--ghost btn--sm" type="button">Lock</button>
+      </div>
+    </header>
+
+    <section id="kpis" class="kpi-grid" aria-label="Key numbers"></section>
+
+    <div class="cols">
+      <section class="panel">
+        <h2 class="panel__h">Submissions over 30 days</h2>
+        <div id="trendChart" class="trend"></div>
+      </section>
+      <section class="panel">
+        <h2 class="panel__h">LLM API cost</h2>
+        <div id="costPanel" class="cost"></div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <h2 class="panel__h">Scale &amp; free-tier headroom</h2>
+      <p class="panel__sub">When current usage will force a move off the free Supabase / Vercel plans.</p>
+      <div id="scalePanel" class="scale"></div>
+    </section>
+
+    <div class="cols cols--3">
+      <section class="panel"><h2 class="panel__h">By path</h2><div id="byPath" class="bars"></div></section>
+      <section class="panel"><h2 class="panel__h">By decision</h2><div id="byDecision" class="bars"></div></section>
+      <section class="panel"><h2 class="panel__h">By readiness</h2><div id="byReadiness" class="bars"></div></section>
+    </div>
+
+    <div class="cols">
+      <section class="panel"><h2 class="panel__h">Top review flags</h2><div id="topFlags" class="bars"></div></section>
+      <section class="panel"><h2 class="panel__h">Roadmap source</h2><div id="roadmapSource" class="bars"></div></section>
+    </div>
+
+    <section class="panel">
+      <div class="panel__head">
+        <h2 class="panel__h">Submissions</h2>
+        <input id="search" class="input table-search" type="search" placeholder="Filter by name, email, phone, North Star…" />
+      </div>
+      <div class="table-wrap">
+        <table class="subs">
+          <thead>
+            <tr>
+              <th>When</th><th>Name</th><th>Contact</th><th>Path</th><th>Decision</th>
+              <th>Readiness</th><th>Clarity</th><th>Source</th><th>Flags</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="subsBody"></tbody>
+        </table>
+      </div>
+      <p id="subsEmpty" class="caption" hidden>No submissions match.</p>
+    </section>
+
+    <footer class="dash__foot">
+      <p class="caption" id="footNote"></p>
+    </footer>
+  </main>
+
+  <!-- Detail drawer for a single submission -->
+  <div id="drawer" class="drawer" hidden>
+    <div class="drawer__scrim" data-close></div>
+    <aside class="drawer__panel" role="dialog" aria-modal="true" aria-label="Submission detail">
+      <button class="drawer__close" type="button" data-close aria-label="Close">×</button>
+      <div id="drawerBody"></div>
+    </aside>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

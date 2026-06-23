@@ -80,8 +80,10 @@ Deno.serve(async (request) => {
   // them current without a redeploy; surfaced to the UI so cost is transparent.
   const pricing = {
     model: Deno.env.get('OPENAI_MODEL') || 'gpt-5.4-mini',
-    inputPricePerMTok: Number(Deno.env.get('OPENAI_INPUT_PRICE') || 0.25),
-    outputPricePerMTok: Number(Deno.env.get('OPENAI_OUTPUT_PRICE') || 2.0),
+    // gpt-5.4-mini list price (verified 2026-06): $0.75 / 1M input, $4.50 / 1M
+    // output. Env vars override when the model or price changes.
+    inputPricePerMTok: Number(Deno.env.get('OPENAI_INPUT_PRICE') || 0.75),
+    outputPricePerMTok: Number(Deno.env.get('OPENAI_OUTPUT_PRICE') || 4.5),
     // A soft monthly OpenAI budget the dashboard meters spend against. Not a hard
     // cap (the per-IP rate limit is), just the line where someone should look.
     softMonthlyBudget: Number(Deno.env.get('OPENAI_SOFT_MONTHLY_BUDGET') || 50),

@@ -35,17 +35,21 @@ placeholders — set them to the real numbers for the deployed model:
 
 ```bash
 supabase secrets set \
-  OPENAI_INPUT_PRICE=0.25 \
-  OPENAI_OUTPUT_PRICE=2.00 \
+  OPENAI_INPUT_PRICE=0.75 \
+  OPENAI_OUTPUT_PRICE=4.50 \
   OPENAI_SOFT_MONTHLY_BUDGET=50 \
   --project-ref hkgukldmktlobumabewr
 ```
 
 | Secret | Meaning | Default |
 | --- | --- | --- |
-| `OPENAI_INPUT_PRICE` | USD per 1M input tokens | `0.25` |
-| `OPENAI_OUTPUT_PRICE` | USD per 1M output tokens | `2.00` |
+| `OPENAI_INPUT_PRICE` | USD per 1M input tokens | `0.75` |
+| `OPENAI_OUTPUT_PRICE` | USD per 1M output tokens | `4.50` |
 | `OPENAI_SOFT_MONTHLY_BUDGET` | USD line the spend meter tracks against | `50` |
+
+> Defaults match the **gpt-5.4-mini** list price (verified 2026-06: $0.75 / 1M
+> input, $4.50 / 1M output). The code defaults are already correct, so the
+> secrets above are only needed if the model or its price changes.
 
 ### 3. (Recommended) Deploy exact token logging
 

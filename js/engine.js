@@ -184,11 +184,20 @@
       seen.add(fill.title); why100x.push(fill);
     }
 
+    const firstPrinciples = [
+      'Progress is reps, not hours of intent. A finished small thing beats a perfect plan, so the unit of work is "shipped," not "studied."',
+      isBuild
+        ? 'A product is only real once someone other than you uses it. Until then it is a hobby, so getting it in front of one real user is the first job, not the last.'
+        : 'Proof beats credentials. A few things you actually built and can explain move you further than any certificate, so the work has to produce evidence, not just completion.',
+      `Your plan must survive your worst week, not your best one. Sized to ${hours.label}, consistency compounds where intensity stalls.`
+    ];
+
     return {
       generatedBy: 'fallback',
       headline,
       statement,
       reality,
+      firstPrinciples,
       milestones,
       whatItTakes,
       why100x: why100x.slice(0, 3)

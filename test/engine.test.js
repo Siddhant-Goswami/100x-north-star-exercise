@@ -77,6 +77,7 @@ test('buildRoadmap returns a personalized fallback roadmap shaped for the result
     assert.ok(m.window && m.title && m.detail);
   });
   assert.ok(builder.whatItTakes.includes('5–7 hours a week'));
+  assert.ok(Array.isArray(builder.firstPrinciples) && builder.firstPrinciples.length >= 2);
   assert.equal(builder.why100x.length, 3);
   assert.match(builder.why100x[0].title, /shipping your own thing/);
 

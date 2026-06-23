@@ -18,7 +18,7 @@ const ipHashSalt = Deno.env.get('IP_HASH_SALT') || 'north-star-cohort-8';
 const corsHeaders = {
   'Access-Control-Allow-Origin': productionOrigin,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
 };
 
 const requiredAnswerIds = [
@@ -177,7 +177,9 @@ type Roadmap = {
   generatedBy: string;
   headline: string;
   statement: string;
+  statementSegments?: Array<{ text: string; part: string }>;
   reality: string;
+  firstPrinciples: string[];
   insight?: string;
   milestones: Array<{ window: string; title: string; detail: string }>;
   whatItTakes: string;
@@ -241,11 +243,20 @@ function buildRoadmap(answers: Record<string, unknown>, name: string): Roadmap {
     seen.add(fill.title); why100x.push(fill);
   }
 
+  const firstPrinciples = [
+    'Progress is reps, not hours of intent. A finished small thing beats a perfect plan, so the unit of work is "shipped," not "studied."',
+    isBuild
+      ? 'A product is only real once someone other than you uses it. Until then it is a hobby, so getting it in front of one real user is the first job, not the last.'
+      : 'Proof beats credentials. A few things you actually built and can explain move you further than any certificate, so the work has to produce evidence, not just completion.',
+    `Your plan must survive your worst week, not your best one. Sized to ${hours.label}, consistency compounds where intensity stalls.`
+  ];
+
   return {
     generatedBy: 'fallback',
     headline,
     statement,
     reality,
+    firstPrinciples,
     milestones,
     whatItTakes,
     why100x: why100x.slice(0, 3)
@@ -272,10 +283,12 @@ const ROADMAP_SYSTEM_PROMPT = [
   '- Do NOT mention scores, ratings, or readiness levels.',
   '- Milestones must be simple, concrete, and sized to the weekly hours they reported.',
   '- "why100x" must tie 100x specifically to what they said they get stuck on and the path they chose.',
+  '- Include "firstPrinciples": 2 to 3 short statements that reason from first principles — the underlying truths about their situation that make this specific plan the right one. Make them feel earned, not generic.',
   '- Use web search to find one grounded, specific insight about their target role/goal/market (e.g. what the role actually requires now, realistic timelines, demand). Put it in "insight" in one or two sentences. If you cannot find anything solid, set insight to an empty string.',
-  '- Write every field as plain prose. Do NOT include citations, URLs, markdown, brackets, or source links in any field.',
+  '- CRITICAL: write every field as clean plain prose for a reader. NEVER include citations, source names, domains, URLs, markdown, brackets, or parentheticals like "(openai.com)". NEVER add a sources, references, or citations list anywhere in the output.',
+  '- Also return "statementSegments": split their EXACT North Star statement into an ordered array of {text, part}. Concatenating every text in order must reproduce the statement verbatim. "part" is "time" for the date/horizon, "role" for their role or identity, "thing" for the specific thing they do, "scale" for the level/income/number, or "" for connective words (e.g. "By", ", I am", " doing ", " at ").',
   'Return ONLY a JSON object, no prose, in exactly this shape:',
-  '{"headline": string, "statement": string (echo their North Star), "reality": string (an honest read of where they are vs the goal and what it really takes), "insight": string, "milestones": [{"window": string e.g. "Weeks 1–4", "title": string, "detail": string}] (exactly 4, spanning ~6 months), "whatItTakes": string, "why100x": [{"title": string, "detail": string}] (exactly 3)}'
+  '{"headline": string, "statement": string (echo their North Star), "statementSegments": [{"text": string, "part": "time"|"role"|"thing"|"scale"|""}], "reality": string (an honest read of where they are vs the goal and what it really takes), "firstPrinciples": [string, string, string], "insight": string, "milestones": [{"window": string e.g. "Weeks 1–4", "title": string, "detail": string}] (exactly 4, spanning ~6 months), "whatItTakes": string, "why100x": [{"title": string, "detail": string}] (exactly 3)}'
 ].join('\n');
 
 function extractOutputText(data: Record<string, unknown>): string {
@@ -298,9 +311,11 @@ function extractOutputText(data: Record<string, unknown>): string {
 // strip link markup and bare URLs back down to readable prose.
 function cleanProse(value: string) {
   return value
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/\(\s*https?:\/\/[^)]*\)/g, '')
-    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')                                  // [label](url) -> label
+    .replace(/\(\s*https?:\/\/[^)]*\)/g, '')                                   // (http url)
+    .replace(/https?:\/\/\S+/g, '')                                           // bare urls
+    .replace(/\s*\((?:see\s+)?(?:[a-z0-9-]+\.)+[a-z]{2,}[^)]*\)/gi, '')        // (platform.openai.com) style citations
+    .replace(/\s*\n*\s*(?:sources?|references?|citations?)\s*:[\s\S]*$/i, '')  // trailing source list
     .replace(/\s+([.,;:])/g, '$1')
     .replace(/\(\s*\)/g, '')
     .replace(/\s{2,}/g, ' ')
@@ -332,11 +347,36 @@ function coerceRoadmap(raw: unknown, answers: Record<string, unknown>, name: str
     })
     .filter((w) => w.title || w.detail);
 
+  const firstPrinciples = (Array.isArray(obj.firstPrinciples) ? obj.firstPrinciples : [])
+    .map((p) => {
+      if (typeof p === 'string') return cleanProse(p).slice(0, 400);
+      if (p && typeof p === 'object') {
+        const item = p as Record<string, unknown>;
+        const text = typeof item.detail === 'string' ? item.detail : (typeof item.text === 'string' ? item.text : '');
+        return cleanProse(String(text)).slice(0, 400);
+      }
+      return '';
+    })
+    .filter(Boolean)
+    .slice(0, 4);
+
+  const validParts = new Set(['time', 'role', 'thing', 'scale', '']);
+  const statementSegments = (Array.isArray(obj.statementSegments) ? obj.statementSegments : [])
+    .filter((s) => s && typeof s === 'object' && typeof (s as Record<string, unknown>).text === 'string')
+    .slice(0, 40)
+    .map((s) => {
+      const item = s as Record<string, unknown>;
+      const part = typeof item.part === 'string' && validParts.has(item.part) ? item.part : '';
+      return { text: String(item.text), part };
+    });
+
   return {
     generatedBy: 'openai',
     headline: str(obj.headline, fb.headline),
     statement: str(obj.statement, fb.statement),
+    statementSegments: statementSegments.length ? statementSegments : undefined,
     reality: str(obj.reality, fb.reality),
+    firstPrinciples: firstPrinciples.length ? firstPrinciples : fb.firstPrinciples,
     insight: str(obj.insight, ''),
     milestones: milestones.length >= 3 ? milestones : fb.milestones,
     whatItTakes: str(obj.whatItTakes, fb.whatItTakes),

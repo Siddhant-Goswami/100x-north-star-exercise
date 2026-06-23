@@ -85,6 +85,23 @@
     return html.replace(/SEGSLOT(\d+)END/g, (_, index) => slots[Number(index)]);
   }
 
+  // Full colour-coding for the result North Star: the LLM splits the statement
+  // into {text, part} tokens (time/role/thing/scale), matching the Q10 template.
+  // Falls back to time+scale auto-highlighting when segments are unavailable.
+  function renderNorthStarSegments(roadmap, statement) {
+    const segments = roadmap && Array.isArray(roadmap.statementSegments) ? roadmap.statementSegments : null;
+    const valid = segments && segments.length
+      && segments.every((token) => token && typeof token.text === 'string')
+      && segments.map((token) => token.text).join('').replace(/\s/g, '').length >= statement.replace(/\s/g, '').length * 0.6;
+    if (!valid) return highlightNorthStar(statement);
+    const parts = new Set(['time', 'role', 'thing', 'scale']);
+    return segments
+      .map((token) => parts.has(token.part)
+        ? `<span class="seg seg-${token.part}">${escapeHtml(token.text)}</span>`
+        : escapeHtml(token.text))
+      .join('');
+  }
+
   function toast(message) {
     const node = document.querySelector('#toast');
     node.textContent = message;
@@ -658,6 +675,9 @@
       || (firstName ? `${firstName}, here is your path to your North Star.` : 'Here is your path to your North Star.');
     const milestones = Array.isArray(roadmap.milestones) ? roadmap.milestones : [];
     const why100x = Array.isArray(roadmap.why100x) ? roadmap.why100x : [];
+    const principles = Array.isArray(roadmap.firstPrinciples)
+      ? roadmap.firstPrinciples.map((item) => (typeof item === 'string' ? item : (item && item.detail) || '')).filter(Boolean)
+      : [];
 
     return `
       <section class="step result-step">
@@ -668,16 +688,22 @@
           </div>
           <button id="printButton" class="btn btn--secondary" type="button">Print / save PDF</button>
         </div>
-        ${statement ? `<div class="ns-restate result-ns"><span class="ns-restate-label">Your North Star</span><p class="ns-restate-text">${highlightNorthStar(statement)}</p></div>` : ''}
+        ${statement ? `<div class="ns-restate result-ns"><span class="ns-restate-label">Your North Star</span><p class="ns-restate-text">${renderNorthStarSegments(roadmap, statement)}</p></div>` : ''}
         ${roadmap.reality ? `<div class="reality-box"><span class="eyebrow">The honest read</span><p>${escapeHtml(roadmap.reality)}</p></div>` : ''}
+        ${principles.length ? `
+        <div class="principles">
+          <span class="eyebrow">From first principles</span>
+          <ul>${principles.map((point) => `<li>${escapeHtml(point)}</li>`).join('')}</ul>
+        </div>` : ''}
         ${roadmap.insight ? `<div class="insight-box"><span class="insight-tag">What we found</span><p>${escapeHtml(roadmap.insight)}</p></div>` : ''}
         <span class="eyebrow">Your six-month path</span>
         <h2>Simple milestones, sized to your life.</h2>
-        <div class="roadmap">
+        <div class="timeline">
           ${milestones.map((m) => `
-            <div class="day-card">
-              <div class="day-num">${escapeHtml(m.window || '')}</div>
-              <div>
+            <div class="tl-item">
+              <span class="tl-node" aria-hidden="true"></span>
+              <span class="tl-window">${escapeHtml(m.window || '')}</span>
+              <div class="tl-card">
                 <h3>${escapeHtml(m.title || '')}</h3>
                 <p>${escapeHtml(m.detail || '')}</p>
               </div>

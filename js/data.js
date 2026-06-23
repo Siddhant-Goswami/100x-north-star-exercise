@@ -134,15 +134,21 @@
     introSteps: [
       {
         id: 'welcome', module: 'context', type: 'intro',
-        eyebrow: '100x Engineers · Cohort 8 · Free',
+        eyebrow: '100x Engineers · Cohort 8 · Free · ~10 minutes',
         title: 'Get your personalized AI roadmap. Free.',
-        subtitle: 'Answer a few honest questions and walk away with a roadmap built only for you — the exact milestones, the weekly rhythm, and the real work it takes to get from where you are today to where you want to be in six months.',
-        body: 'It takes about ten minutes. No payment, no commitment, no sales pitch hiding in the questions. At the end you get a clear plan you can act on whether or not you ever join us — and a straight read on whether 100x is the right vehicle to get you there.',
+        subtitle: 'Answer a few honest questions and walk away with a roadmap built only for you — the exact milestones, the weekly rhythm sized to the hours you actually have, and the real work it takes to get from where you are today to where you want to be in six months.',
+        body: 'Most people mean to get into AI, then six months later wonder where the time went. This is the ten minutes that stops that. No payment, no commitment, no sales pitch hiding in the questions — just a plan you can act on whether or not you ever join us, and a straight read on whether 100x is the right vehicle to get you there.',
         promises: [
           { title: 'A written North Star', body: 'A concrete statement of exactly where you want to be in six months — in your own words.' },
           { title: 'A personalized roadmap', body: 'Simple milestones sized to the hours you actually have, plus an honest look at what it really takes.' },
           { title: 'A straight fit read', body: 'Whether 100x can get you there faster — and if we are not the right fit, we will tell you so.' }
-        ]
+        ],
+        proof: 'Join 50,000+ alumni — now building and getting hired at Meta, Shopify, ASOS, and Damco.',
+        testimonial: {
+          result: 'Built a generative-AI agency that now serves KIA, AirAsia, and Accenture — on projects worth $3,000–$15,000 each.',
+          name: 'Pranay',
+          detail: 'Co-founder, Nexi Labs · 100x graduate'
+        }
       }
     ],
     modules: [

@@ -250,6 +250,12 @@
         ${step.subtitle ? `<p class="subtitle">${escapeHtml(step.subtitle)}</p>` : ''}
         ${step.body ? `<p class="body-copy">${escapeHtml(step.body)}</p>` : ''}
         ${promises ? `<div class="promise-grid">${promises}</div>` : ''}
+        ${step.proof ? `<p class="proof-stat">${escapeHtml(step.proof)}</p>` : ''}
+        ${step.testimonial ? `<figure class="proof-card">
+          <span class="proof-tag">Graduate outcome</span>
+          <p>${escapeHtml(step.testimonial.result)}</p>
+          <figcaption><b>${escapeHtml(step.testimonial.name)}</b> · ${escapeHtml(step.testimonial.detail)}</figcaption>
+        </figure>` : ''}
       </section>`;
   }
 
@@ -449,6 +455,7 @@
         <span class="eyebrow">One last step · still free</span>
         <h1>Unlock your personalized North Star roadmap.</h1>
         <p class="subtitle">Your answers are done. Add your details and we will generate a roadmap built only for you — the milestones, the weekly rhythm, and the honest work it takes to reach the North Star you wrote.</p>
+        <p class="proof-stat">You are in good company — 50,000+ alumni have started exactly here, and now build and get hired at Meta, Shopify, ASOS, and Damco.</p>
         ${renderLockedPreview()}
         ${buildAnswerReview()}
         <form id="contactForm" class="contact-card" novalidate>

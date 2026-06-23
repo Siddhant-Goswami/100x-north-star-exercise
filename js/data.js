@@ -33,7 +33,7 @@
     },
     {
       id: 'weekly_hours', module: 'standing', type: 'single',
-      title: 'On a normal week, how many hours do you have for something like this?',
+      title: 'On a normal week, how many hours do you have or can spend on learning?',
       help: 'Be honest, not aspirational. This is the single most useful answer on the form. The program only works when your weekly goals are sized to the hours you actually have, not the hours you wish you had.',
       options: [
         ['under2', 'Under 2 hours'],

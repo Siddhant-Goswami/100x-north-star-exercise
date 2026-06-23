@@ -10,10 +10,10 @@ const corsHeaders = {
 };
 
 const requiredAnswerIds = [
-  'role_experience', 'journey', 'code_history', 'building_now', 'industry',
+  'role_experience', 'journey', 'code_history', 'building_now',
   'weekly_hours', 'worst_week_hours', 'worst_week_cause',
-  'itch', 'path', 'six_month_goal', 'payoff', 'north_star',
-  'stall_point', 'stuck_on', 'do_nothing', 'decision'
+  'itch', 'path', 'north_star',
+  'stall_point', 'stuck_on', 'decision'
 ];
 
 const timeMarkers = [
@@ -87,8 +87,8 @@ function scoreAssessment(answers: Record<string, unknown>) {
 
   const stats = {
     northStarClarity,
-    outcomeClarity: detailScore(answers.six_month_goal, [45, 90, 160]),
-    motivationDepth: detailScore(answers.payoff, [40, 80, 150]),
+    outcomeClarity: detailScore(answers.north_star, [60, 120, 200]),
+    motivationDepth: detailScore(answers.itch, [40, 80, 150]),
     gapHonesty: detailScore(answers.stall_point, [50, 110, 200]),
     startingClarity: detailScore(answers.journey, [50, 110, 200]),
     timeRealism,

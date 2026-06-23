@@ -182,6 +182,29 @@
       </div>`;
   }
 
+  function renderNorthStarGuide(question) {
+    const template = (question.template || [])
+      .map((token) => token.part
+        ? `<span class="seg seg-${token.part}">${escapeHtml(token.text)}</span>`
+        : escapeHtml(token.text))
+      .join('');
+    const examples = (question.examples || []).map((example) => `
+      <p class="ns-ex">
+        <span class="seg-lead">By </span><span class="seg seg-time">${escapeHtml(example.time)}</span><span class="seg-lead">, I am </span><span class="seg seg-role">${escapeHtml(example.role)}</span> <span class="seg seg-thing">${escapeHtml(example.thing)}</span> <span class="seg-lead">at </span><span class="seg seg-scale">${escapeHtml(example.scale)}</span>.
+      </p>`).join('');
+    return `
+      <div class="ns-guide">
+        <div class="ns-template">
+          <span class="ns-template-label">The shape to aim for</span>
+          <p>${template}</p>
+        </div>
+        <div class="ns-anim" aria-hidden="true">
+          <span class="ns-anim-label">For example</span>
+          <div class="ns-anim-stack">${examples}</div>
+        </div>
+      </div>`;
+  }
+
   function renderQuestion(question) {
     const number = questionNumber.get(question.id);
     const value = state.answers[question.id];
@@ -198,7 +221,7 @@
           </button>`;
         }).join('')}
       </div>
-      ${question.other ? `<div class="other-field"><label class="label" for="otherInput">If something else, name it</label><input class="input" id="otherInput" maxlength="160" placeholder="Tell us in a few words" value="${escapeHtml(state.answers[`${question.id}_other`] || '')}" /></div>` : ''}`;
+      ${question.other && value === 'else' ? `<div class="other-field"><label class="label" for="otherInput">If something else, name it</label><input class="input" id="otherInput" maxlength="160" placeholder="Tell us in a few words" value="${escapeHtml(state.answers[`${question.id}_other`] || '')}" /></div>` : ''}`;
     } else {
       const tag = question.type === 'long' ? 'textarea' : 'input';
       if (tag === 'textarea') {
@@ -217,9 +240,9 @@
       <section class="step">
         <span class="question-index">Question ${number} of ${data.questions.length}</span>
         <h2>${escapeHtml(question.title)}</h2>
-        ${question.help ? `<p class="question-help">${escapeHtml(question.help)}</p>` : ''}
+        ${question.northStar ? '' : (question.help ? `<p class="question-help">${escapeHtml(question.help)}</p>` : '')}
         ${question.vehicle ? renderVehiclePanel() : ''}
-        ${example}
+        ${question.northStar ? renderNorthStarGuide(question) : example}
         ${control}
         <p id="questionError" class="field-error" role="alert"></p>
       </section>`;
@@ -238,6 +261,13 @@
             state.answers[question.id] = values;
           }
           persist();
+          // Refining the decision sends them back to edit the North Star itself.
+          if (question.id === 'decision' && option === 'refine') {
+            const target = steps.findIndex((step) => step.id === 'north_star');
+            toast('Take another pass at your North Star, then continue.');
+            goTo(target);
+            return;
+          }
           render();
         });
       });

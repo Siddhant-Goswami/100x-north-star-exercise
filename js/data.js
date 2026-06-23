@@ -26,12 +26,6 @@
       placeholder: 'Describe it, or say not right now.', maxLength: 700
     },
     {
-      id: 'industry', module: 'standing', type: 'text',
-      title: 'What industry do you work in?',
-      help: 'This helps us picture where AI can create leverage for you specifically.',
-      placeholder: 'e.g. Fintech, real estate, healthcare, education', maxLength: 120
-    },
-    {
       id: 'weekly_hours', module: 'standing', type: 'single',
       title: 'On a normal week, how many hours do you have or can spend on learning?',
       help: 'Be honest, not aspirational. This is the single most useful answer on the form. The program only works when your weekly goals are sized to the hours you actually have, not the hours you wish you had.',
@@ -64,47 +58,39 @@
     // PART 2 — Where you want to be
     {
       id: 'itch', module: 'northstar', type: 'long',
-      title: 'What made you open this right now? What is the itch?',
+      title: 'What made you start looking for a program like this right now?',
       help: 'This is the part most people skip, then wonder where six months went. Slow down here.',
       placeholder: 'Write whatever comes to mind. No editing.', maxLength: 900
     },
     {
-      id: 'path', module: 'northstar', type: 'single',
+      id: 'path', module: 'northstar', type: 'single', other: true,
       title: 'Six months from now, which of these sounds more like you?',
       help: 'Choose the one that pulls harder. You confirm your real path later, from experience, not from this guess.',
       options: [
-        ['job', 'A) I got a better job, promotion, or raise — and AI is the reason I got it.'],
-        ['build', 'B) I built something with AI — a product, tool, service, or business — and I am running it.']
+        ['job', 'I got a better job, promotion, or raise — and AI is the reason I got it.'],
+        ['build', 'I built something with AI — a product, tool, service, or business — and I am running it.'],
+        ['else', 'Something else.']
       ]
-    },
-    {
-      id: 'six_month_goal', module: 'northstar', type: 'long',
-      title: 'What specifically do you want to be true by the end of six months?',
-      help: 'Vague answers like “get better at AI” or “learn to build things” will not serve you here. Push for concrete.',
-      example: [
-        'e.g. “I want a lead role and to use AI to lift my team’s output,”',
-        'or “I want my first paying AI consulting client,”',
-        'or “I want a working product real users can access.”'
-      ],
-      placeholder: 'Be concrete. What is true that is not true today?', maxLength: 900
-    },
-    {
-      id: 'payoff', module: 'northstar', type: 'long',
-      title: 'What will having that actually give you?',
-      help: 'Think past the title or the number. When you picture yourself there, what do you finally have, feel, or stop waiting for?',
-      example: [
-        'e.g. an income that ends the money stress, a future-proofed role, the freedom to travel, real authority on your team, or simple proof to yourself that you can build.'
-      ],
-      placeholder: 'The thing underneath the goal.', maxLength: 800
     },
     {
       id: 'north_star', module: 'northstar', type: 'long',
       title: 'Write your North Star statement.',
-      help: 'Complete this sentence, taking six months as the duration: “By [month + year], I am [role or identity] doing [specific thing] at [level, income, or scale].”',
-      example: [
-        'e.g. “By December 2026, I have launched a working AI product that 50 real users are actively using at $2,000 monthly recurring revenue.”',
-        '“By December 2026, I am an AI real-estate consultant helping agencies automate lead gen at $15,000 per month.”',
-        '“By December 2026, I am the go-to AI person on my team, leading the internal LLM rollout at enterprise scale.”'
+      northStar: true,
+      template: [
+        { text: 'By ' },
+        { text: '[month + year]', part: 'time' },
+        { text: ', I am ' },
+        { text: '[role or identity]', part: 'role' },
+        { text: ' doing ' },
+        { text: '[specific thing]', part: 'thing' },
+        { text: ' at ' },
+        { text: '[level, income, or scale]', part: 'scale' },
+        { text: '.' }
+      ],
+      examples: [
+        { time: 'December 2026', role: 'an AI real-estate consultant', thing: 'helping agencies automate lead gen', scale: '$15,000 per month' },
+        { time: 'December 2026', role: 'the go-to AI person on my team', thing: 'leading the internal LLM rollout', scale: 'enterprise scale' },
+        { time: 'December 2026', role: 'a solo founder', thing: 'running a working AI product', scale: '$2,000 in monthly recurring revenue' }
       ],
       placeholder: 'By December 2026, I am …', maxLength: 500
     },
@@ -112,13 +98,13 @@
     // PART 3 — The gap between
     {
       id: 'stall_point', module: 'gap', type: 'long',
-      title: 'You have probably tried to move toward this before. Where did it stall, and what stalled it?',
+      title: 'Have you tried to move toward this goal before, on your own or through a course or a side project? If yes, where did it stall, and what stopped you?',
       help: 'Tell us what actually happened, not what you planned to happen. The honest stall point is the most useful thing on this page.',
       placeholder: 'The course you stopped, the project that fizzled, the moment you lost it.', maxLength: 900
     },
     {
       id: 'stuck_on', module: 'gap', type: 'single',
-      title: 'When you picture actually doing this, what is the part you quietly suspect you will get stuck on?',
+      title: 'Looking ahead at the next six months, what is the part you quietly suspect you will get stuck on?',
       help: 'Pick the one that feels most true. We use it to set the right guardrail for you.',
       other: true,
       options: [
@@ -130,12 +116,6 @@
         ['else', 'Something else.']
       ]
     },
-    {
-      id: 'do_nothing', module: 'gap', type: 'long',
-      title: 'If you change nothing and six months pass anyway, where are you? Be specific.',
-      help: 'The honest version of the default path. This is the cost of standing still.',
-      placeholder: 'Same role, same itch, same six months gone. Or worse. Say it plainly.', maxLength: 800
-    },
 
     // PART 4 + 5 — Is this the right vehicle? / Where this leaves you
     {
@@ -145,8 +125,7 @@
       vehicle: true,
       options: [
         ['yes', 'Yes, this is the one.'],
-        ['refine', 'Close, but I want to refine it.'],
-        ['unsure', 'Not sure yet.']
+        ['refine', 'Close, but I want to refine it.']
       ]
     }
   ];

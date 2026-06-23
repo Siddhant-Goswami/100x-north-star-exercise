@@ -46,6 +46,6 @@ test('the Edge Function recomputes the assessment and upserts the unique exercis
 
 test('the server validates every required answer id', () => {
   const fn = fs.readFileSync('supabase/functions/submit-exercise/index.ts', 'utf8');
-  assert.ok(questionIds.length >= 17);
+  assert.ok(questionIds.length >= 13);
   questionIds.forEach((id) => assert.ok(fn.includes(`'${id}'`), `Edge Function should require ${id}`));
 });

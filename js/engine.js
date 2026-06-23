@@ -53,8 +53,10 @@
 
     const stats = {
       northStarClarity,
-      outcomeClarity: detailScore(answers.six_month_goal, [45, 90, 160]),
-      motivationDepth: detailScore(answers.payoff, [40, 80, 150]),
+      // Outcome clarity reads how fully the North Star describes the outcome itself.
+      outcomeClarity: detailScore(answers.north_star, [60, 120, 200]),
+      // Motivation depth reads the "why now" answer that opened this section.
+      motivationDepth: detailScore(answers.itch, [40, 80, 150]),
       gapHonesty: detailScore(answers.stall_point, [50, 110, 200]),
       startingClarity: detailScore(answers.journey, [50, 110, 200]),
       timeRealism,

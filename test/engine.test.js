@@ -33,7 +33,7 @@ function answers(overrides = {}) {
 }
 
 test('the exercise contains all required questions', () => {
-  assert.equal(questions.length, 17);
+  assert.equal(questions.length, 13);
   assert.deepEqual(engine.validateAnswers(answers(), questions), {});
 });
 

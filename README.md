@@ -1,113 +1,106 @@
-# Before You Decide — North Star Clarity Exercise
+# 100x Roadmap Studio
 
-A guided onboarding exercise for the **100x Engineers 6-Month Applied AI Cohort**.
-Before anyone enrolls, it helps them write a concrete North Star, see the gap
-between where they stand and where they want to be, and get an honest read on
-whether the cohort is the right vehicle to close it. The clarity is theirs to
-keep either way.
+A modular platform where **instructors design many roadmaps** (questions, system prompt,
+model, CTA, output format, scoring rubric) — as data, not code — and **students** pick a
+roadmap, answer it, and get a personalized, LLM-generated plan.
 
-It is a framework-free clone of the
-[AI PM Roadmap](https://github.com/Siddhant-Goswami/ai-pm-roadmap): a static
-front end with a Supabase Edge Function and table behind it.
+One Next.js app, two sections, sharing one config schema:
 
-## The five parts
+- **Participant** (`/`, `/r/[slug]`) — a generic renderer that draws *any* roadmap from its
+  config and generates a result via `/api/generate`.
+- **Admin** (`/login`, `/instructor`, `/admin`) — instructors build/test/publish their own
+  roadmaps; super-admins see every instructor, roadmap, submission, and cost.
 
-1. **Where you stand today** — role, journey, code history, what you run today,
-   industry, and the honest weekly (and worst-week) hours.
-2. **Where you want to be** — the itch, your path (career vs. builder), the
-   specific six-month outcome, the payoff underneath it, and a written North
-   Star statement.
-3. **The gap between** — where it stalled before, what you quietly expect to get
-   stuck on, and the cost of changing nothing.
-4. **Is this the right vehicle?** — the honest "built for you / not for you yet"
-   read, shown against the answers just written.
-5. **Where this leaves you** — a reflected-back North Star, clarity scores, and
-   how the cohort would close the gap described.
+There is **no per-roadmap code**. Building a roadmap writes a JSON config row; the same
+renderer and generation engine handle all of them (headless-CMS model).
 
-## Run locally
+## Stack
 
-```bash
-npm run serve
-npm run check
-```
+- Next.js 16 (App Router) · TypeScript · Tailwind v4 · shadcn/ui
+- Supabase: Postgres + Auth + RLS
+- LLM providers: **OpenAI** (default), **Groq**, **OpenRouter** (one OpenAI-compatible
+  client) + **Anthropic**. Web search on OpenAI (Responses API) and Anthropic.
 
-Open `http://localhost:4173`. On `localhost` the submission is simulated, so the
-exercise runs end-to-end without a backend. Content lives in `js/data.js`;
-clarity scoring, fit signals, and phone normalization live in `js/engine.js`.
+## Architecture
 
-## Backend (Supabase)
-
-```bash
-supabase db push                       # applies the migration
-supabase functions deploy submit-exercise
-supabase secrets set ALLOWED_ORIGIN="https://your-deployment.example.com"
-```
-
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided to deployed Edge
-Functions automatically. Then set `submissionEndpoint` in `js/config.js` to:
-
-```
-https://<project-ref>.supabase.co/functions/v1/submit-exercise
-```
-
-The Edge Function validates the seventeen-answer contract, recomputes all
-clarity scores and fit signals server-side, and upserts by
-`exercise_id + phone_e164`. The browser never receives a service-role key.
-
-## Review
-
-Use `public.north_star_submissions` in the Supabase dashboard. Relevant fields:
-
-- `answers`: every part of the exercise, keyed by question id.
-- `north_star_statement`, `path`, `decision`: the headline signals for a fit call.
-- `assessment_stats`: seven clarity/honesty dimensions.
-- `fit_signals`: the track, weekly rhythm, and stall guardrail shown to the user.
-- `review_flags`: conditions that warrant a closer human read (e.g.
-  `no-consistent-hours`, `north-star-vague`, `still-deciding`).
-
-RLS is enabled with no public table policies. Writes happen only through the
-Edge Function.
-
-## Analytics (PostHog)
-
-The full visitor journey is instrumented with [PostHog](https://posthog.com).
-It is **off until configured** — paste your project API key into the `posthog`
-block in `js/config.js`:
-
-```js
-posthog: {
-  key: 'phc_xxx',                  // PostHog project API key
-  host: 'https://us.i.posthog.com', // or https://eu.i.posthog.com
-  disableOnLocalhost: true          // keep dev traffic out of your data
-}
-```
-
-`js/analytics.js` lazy-loads the PostHog snippet and exposes a tiny, no-op-safe
-`window.Analytics` wrapper, so an empty key (or a blocked CDN) never breaks the
-exercise. No free-text answers or contact details are sent as event properties;
-the only personal data is an explicit `identify(email)` on a consented submit.
-
-Key events (all carry `exercise_id` and step/module context):
-
-| Event | When |
+| Concern | Where |
 | --- | --- |
-| `exercise_started` / `exercise_resumed` / `exercise_revisited` | first load, depending on saved progress |
-| `step_viewed` | every step a visitor lands on (deduped per position) |
-| `option_selected` | a single/multi choice is picked or cleared |
-| `question_answered`, `step_completed`, `step_unlocked` | advancing through the exercise |
-| `step_back`, `module_opened`, `answer_review_clicked` | backward / lateral navigation |
-| `north_star_refine_started` | the "refine my North Star" loop |
-| `submit_attempted`, `submit_validation_failed` | the contact-form submit funnel |
-| `exercise_submitted` / `submission_failed` | roadmap generated (with timing + scores) or errored |
-| `roadmap_printed`, `exercise_reset` | post-result actions |
+| Shared config schema (zod + types) | `lib/config-schema.ts` |
+| DB ↔ config mappers, fetch helpers | `lib/roadmaps.ts` |
+| Generation engine (validate/score/generate/coerce) | `lib/generation/*` |
+| Participant UI | `app/page.tsx`, `app/r/[slug]`, `components/participant/*` |
+| Production generation | `app/api/generate/route.ts` |
+| Instructor builder + actions | `app/instructor/*`, `components/admin/*` |
+| Instructor test runs (no persist) | `app/api/test-generate/route.ts` |
+| Super-admin oversight | `app/admin/*`, `lib/admin-stats.ts` |
+| Auth gate | `proxy.ts`, `lib/auth.ts` |
+| Supabase clients (browser/server/service-role) | `lib/supabase/*` |
 
-Build the funnel in PostHog from `exercise_started → step_completed (per module)
-→ submit_attempted → exercise_submitted` to see exactly where people drop.
+**Security:** `roadmaps`/`submissions` have **no anon RLS policies** — the public site reads
+config through the server (service role) which strips `system_prompt`/`model`/`scoring`
+before sending to the browser. Submissions are service-role-only; the admin app reads them
+server-side with ownership filtering. Instructors (RLS) can only touch their own roadmaps;
+super-admins see all.
 
-## Admin panel
+## Setup
 
-`admin.html` is a token-gated dashboard for submissions, basic analytics, LLM API
-cost, and free-tier (Supabase / Vercel) headroom — including when usage will force
-an upgrade off the free plans. It is backed by the `admin-data` Edge Function and
-the `admin_dashboard_stats` RPC. Set the `ADMIN_TOKEN` secret to enable it. See
-[ADMIN.md](ADMIN.md) for setup and what each panel means.
+1. `npm install`
+2. Copy `.env.example` → `.env.local` and fill:
+   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (Dashboard → Project Settings → API)
+   - One or more provider keys: `OPENAI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`
+   - `IP_HASH_SALT`
+3. Apply the Supabase migrations (in `supabase/migrations/` if exported, or already applied
+   to the linked project).
+4. `npm run dev`
+
+The DB schema, RLS, the `handle_new_user` trigger, `model_pricing`, and two example
+roadmaps (`north-star-cohort-8`, `data-career-30day`) are provisioned via migrations.
+
+## Roles
+
+- New sign-ups are **instructors** by default (via the `handle_new_user` trigger).
+- Promote a super-admin:
+  `update public.profiles set role='super_admin' where email='you@example.com';`
+
+## How an instructor builds a roadmap
+
+`/instructor` → **New roadmap** → fill the tabs:
+
+- **Basics** — title, slug (`/r/<slug>`), status.
+- **Questions** — add/reorder typed questions (text / long / single / multi), options, etc.
+- **Output** — define the result fields (string / string-array / segments / list). The model
+  is told to return exactly this shape.
+- **Generation** — system prompt, provider + model, web search, max tokens.
+- **Scoring** — optional rubric (paste JSON) → drives the assessment stored per submission.
+- **Intro & CTA** — landing and contact/result copy.
+- **Test** — run sample inputs (no submission saved; cost logged as `source='test'`).
+
+Set status to **published** and it appears on the public picker at `/`.
+
+## Notes
+
+- `/api/generate` and `/api/test-generate` set `maxDuration = 90`. On Vercel, long
+  web-search generations may need the Pro plan.
+- Per-model pricing lives in `public.model_pricing` for mixed-provider cost accounting.
+
+## Deploying to Vercel
+
+This is now a **Next.js app**, not the old static site. On the Vercel project:
+
+1. **Framework Preset:** set to **Next.js** (Settings → General). The old project was a static
+   site with no build command — clear any Build Command / Output Directory overrides so Vercel
+   runs `next build`.
+2. **Environment variables** (Settings → Environment Variables), for Production & Preview:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (secret)
+   - `OPENAI_API_KEY` (and/or `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`)
+   - `IP_HASH_SALT`
+3. **Node**: `package.json` pins `engines.node >= 20.18.1` (Vercel will use Node 22).
+4. **Function duration**: `/api/generate` and `/api/test-generate` set `maxDuration = 90`.
+   Hobby caps at 60s — fine for current generations (~6–16s). Use **Pro** only if web-search
+   generations start exceeding 60s.
+5. **Supabase Auth**: add the deployed origin to Supabase → Authentication → URL Configuration
+   (Site URL + redirect URLs) so login works in production.
+

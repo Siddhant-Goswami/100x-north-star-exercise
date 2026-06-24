@@ -1,7 +1,0 @@
-[functions.submit-exercise]
-verify_jwt = false
-
-# Admin dashboard data endpoint. JWT verification is off because the function
-# does its own gating with the ADMIN_TOKEN secret (see admin-data/index.ts).
-[functions.admin-data]
-verify_jwt = false

@@ -37,7 +37,15 @@ export function OutputRenderer({
       Array.isArray(output[s.key]) &&
       (output[s.key] as unknown[]).length > 0,
   );
-  let headlineRendered = false;
+  // The first eligible string section becomes the headline; derive it up front
+  // rather than mutating a flag during render.
+  const headlineKey = sections.find(
+    (s) =>
+      s.kind === "string" &&
+      typeof output[s.key] === "string" &&
+      (output[s.key] as string).length > 0 &&
+      !(s.echoAnswer && hasSegments),
+  )?.key;
 
   return (
     <div className="space-y-8">
@@ -68,8 +76,7 @@ export function OutputRenderer({
           const str = typeof value === "string" ? value : "";
           if (!str) return null;
           if (section.echoAnswer && hasSegments) return null;
-          if (!headlineRendered) {
-            headlineRendered = true;
+          if (section.key === headlineKey) {
             return (
               <h1
                 key={section.key}

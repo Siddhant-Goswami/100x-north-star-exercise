@@ -42,6 +42,17 @@ export async function saveRoadmap(raw: unknown): Promise<SaveResult> {
   }
   const cfg = parsed.data;
 
+  // Question keys must be unique — they back a DB unique constraint and key the
+  // answer map. Catch duplicates here for a clear message before any write.
+  const keys = cfg.questions.map((q) => q.questionKey);
+  const duplicate = keys.find((k, i) => keys.indexOf(k) !== i);
+  if (duplicate) {
+    return {
+      ok: false,
+      error: `Duplicate question key: "${duplicate}". Keys must be unique.`,
+    };
+  }
+
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -69,8 +80,13 @@ export async function saveRoadmap(raw: unknown): Promise<SaveResult> {
     roadmapId = data.id as string;
   }
 
-  // Replace the question set.
-  await supabase.from("roadmap_questions").delete().eq("roadmap_id", roadmapId);
+  // Replace the question set. Surface the delete error and abort before
+  // inserting rather than silently dropping it.
+  const { error: delErr } = await supabase
+    .from("roadmap_questions")
+    .delete()
+    .eq("roadmap_id", roadmapId);
+  if (delErr) return { ok: false, error: delErr.message };
   if (cfg.questions.length) {
     const questionRows = cfg.questions.map((q, i) => ({
       roadmap_id: roadmapId,

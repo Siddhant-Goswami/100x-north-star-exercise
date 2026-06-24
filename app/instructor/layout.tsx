@@ -12,7 +12,7 @@ export default async function InstructorLayout({
   children: React.ReactNode;
 }) {
   const profile = await getCurrentProfile();
-  if (!profile) redirect("/login?next=/instructor");
+  if (!profile || !profile.is_active) redirect("/login?next=/instructor");
   const isSuper = profile.role === "super_admin";
 
   return (

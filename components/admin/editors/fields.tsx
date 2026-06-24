@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,10 +23,12 @@ export function TextField({
   mono?: boolean;
   hint?: string;
 }) {
+  const id = useId();
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       <Input
+        id={id}
         type={type}
         value={value ?? ""}
         placeholder={placeholder}
@@ -51,10 +53,12 @@ export function NumberField({
   hint?: string;
   placeholder?: string;
 }) {
+  const id = useId();
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       <Input
+        id={id}
         type="number"
         value={value ?? ""}
         placeholder={placeholder}
@@ -86,10 +90,12 @@ export function AreaField({
   hint?: string;
   error?: string | null;
 }) {
+  const id = useId();
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       <Textarea
+        id={id}
         value={value ?? ""}
         rows={rows}
         placeholder={placeholder}
@@ -119,8 +125,28 @@ export function JsonField({
   rows?: number;
   hint?: string;
 }) {
-  const [text, setText] = useState(JSON.stringify(value ?? null, null, 2));
+  const [text, setText] = useState(() => JSON.stringify(value ?? null, null, 2));
   const [err, setErr] = useState<string | null>(null);
+  const [syncedValue, setSyncedValue] = useState(value);
+
+  // Re-sync the textarea when `value` changes upstream (e.g. a different record
+  // loads). Adjusting state during render is React's recommended alternative to
+  // a sync effect; skip when the textarea already represents `value` so we don't
+  // reformat the user's input mid-edit.
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    let current: unknown;
+    try {
+      current = JSON.parse(text || "null");
+    } catch {
+      current = undefined;
+    }
+    if (JSON.stringify(current ?? null) !== JSON.stringify(value ?? null)) {
+      setText(JSON.stringify(value ?? null, null, 2));
+      setErr(null);
+    }
+  }
+
   return (
     <AreaField
       label={label}

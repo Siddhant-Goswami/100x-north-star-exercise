@@ -1,8 +1,11 @@
 import "server-only";
+import { z } from "zod";
 import {
   CtaSchema,
   IntroSchema,
-  type OutputSection,
+  ModuleSchema,
+  OptionSchema,
+  OutputSectionSchema,
   type PublicRoadmapConfig,
   type Question,
   type RoadmapConfig,
@@ -47,6 +50,12 @@ type RoadmapRow = {
   max_gen_per_ip_per_day: number | null;
 };
 
+/** Validate a jsonb value against a schema; fall back to a safe default if invalid. */
+function parseOr<T>(schema: z.ZodType<T>, value: unknown, fallback: T): T {
+  const result = schema.safeParse(value);
+  return result.success ? result.data : fallback;
+}
+
 function questionRowToQuestion(q: QuestionRow): Question {
   return {
     questionKey: q.question_key,
@@ -57,10 +66,10 @@ function questionRowToQuestion(q: QuestionRow): Question {
     help: q.help ?? undefined,
     placeholder: q.placeholder ?? undefined,
     maxLength: q.max_length ?? undefined,
-    options: Array.isArray(q.options) ? (q.options as Question["options"]) : [],
+    options: parseOr(z.array(OptionSchema), q.options, []),
     allowOther: !!q.allow_other,
     required: q.required ?? true,
-    config: (q.config as Question["config"]) ?? {},
+    config: parseOr(z.record(z.string(), z.any()), q.config, {}),
   };
 }
 
@@ -85,13 +94,9 @@ export function rowToRoadmapConfig(
     maxOutputTokens: row.max_output_tokens ?? 2200,
     modelParams: (row.model_params as Record<string, unknown>) ?? {},
     intro: IntroSchema.parse(row.intro ?? {}),
-    modules: Array.isArray(row.modules)
-      ? (row.modules as RoadmapConfig["modules"])
-      : [],
+    modules: parseOr(z.array(ModuleSchema), row.modules, []),
     questions,
-    outputSchema: Array.isArray(row.output_schema)
-      ? (row.output_schema as OutputSection[])
-      : [],
+    outputSchema: parseOr(z.array(OutputSectionSchema), row.output_schema, []),
     cta: CtaSchema.parse(row.cta ?? {}),
     scoring: ScoringSchema.parse(row.scoring ?? {}),
     maxGenPerIpPerDay: row.max_gen_per_ip_per_day ?? 5,
@@ -127,11 +132,18 @@ async function loadConfigFromRow(
   row: RoadmapRow | null,
 ): Promise<RoadmapConfig | null> {
   if (!row) return null;
-  const { data: questionRows } = await supabase
+  const { data: questionRows, error } = await supabase
     .from("roadmap_questions")
     .select("*")
     .eq("roadmap_id", row.id)
     .order("position");
+  // Fail closed: never build a config from a missing question set, or downstream
+  // required-answer validation would be silently bypassed.
+  if (error) {
+    throw new Error(
+      `Failed to load questions for roadmap ${row.id}: ${error.message}`,
+    );
+  }
   return rowToRoadmapConfig(row, (questionRows ?? []) as QuestionRow[]);
 }
 

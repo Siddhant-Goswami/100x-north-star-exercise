@@ -30,7 +30,10 @@ function clientIp(req: NextRequest): string {
 }
 function hashIp(ip: string): string | null {
   if (!ip) return null;
-  const salt = process.env.IP_HASH_SALT || "north-star-platform";
+  // Require a deployment-specific salt. A shared default would make ip_hash
+  // values deterministic across environments and trivially reversible.
+  const salt = process.env.IP_HASH_SALT;
+  if (!salt) throw new Error("IP_HASH_SALT is not configured.");
   return createHash("sha256").update(`${ip}:${salt}`).digest("hex");
 }
 

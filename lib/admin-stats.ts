@@ -40,6 +40,7 @@ type UsageRow = {
   input_tokens: number;
   output_tokens: number;
   source: string;
+  created_at: string;
 };
 
 function priceKey(provider: string | null, model: string | null) {
@@ -56,33 +57,58 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     supabase.from("submissions").select("roadmap_id, created_at, source"),
     supabase
       .from("llm_usage_events")
-      .select("roadmap_id, provider, model, input_tokens, output_tokens, source"),
+      .select(
+        "roadmap_id, provider, model, input_tokens, output_tokens, source, created_at",
+      ),
     supabase
       .from("model_pricing")
       .select("provider, model, input_price_per_mtok, output_price_per_mtok, effective_from"),
   ]);
+
+  // Fail loud: an auth/schema/query error must not silently render an empty
+  // dashboard that looks like real (zeroed) data.
+  const queryError =
+    roadmapsRes.error ?? subsRes.error ?? usageRes.error ?? pricingRes.error;
+  if (queryError) {
+    throw new Error(`Admin overview query failed: ${queryError.message}`);
+  }
 
   const roadmaps = roadmapsRes.data ?? [];
   const subs = subsRes.data ?? [];
   const usage = (usageRes.data ?? []) as UsageRow[];
   const pricing = pricingRes.data ?? [];
 
-  // Latest price per provider|model.
-  const priceMap = new Map<string, { input: number; output: number }>();
-  const priceAt = new Map<string, string>();
+  // Price history per provider|model, oldest → newest, so each usage event is
+  // costed at the rate in effect when it occurred (not today's rate).
+  type PricePoint = { from: string; input: number; output: number };
+  const priceHistory = new Map<string, PricePoint[]>();
   for (const p of pricing) {
     const key = priceKey(p.provider, p.model);
-    const eff = String(p.effective_from);
-    if (!priceAt.has(key) || eff > (priceAt.get(key) as string)) {
-      priceAt.set(key, eff);
-      priceMap.set(key, {
-        input: Number(p.input_price_per_mtok) || 0,
-        output: Number(p.output_price_per_mtok) || 0,
-      });
-    }
+    const list = priceHistory.get(key) ?? [];
+    list.push({
+      from: String(p.effective_from),
+      input: Number(p.input_price_per_mtok) || 0,
+      output: Number(p.output_price_per_mtok) || 0,
+    });
+    priceHistory.set(key, list);
   }
+  for (const list of priceHistory.values()) {
+    list.sort((a, b) => a.from.localeCompare(b.from));
+  }
+  const priceFor = (u: UsageRow): PricePoint | null => {
+    const list = priceHistory.get(priceKey(u.provider, u.model));
+    if (!list?.length) return null;
+    const at = u.created_at ?? "";
+    // Newest price whose effective_from is on/before the event; else earliest.
+    let chosen: PricePoint | null = null;
+    for (const point of list) {
+      if (point.from <= at) chosen = point;
+      else break;
+    }
+    return chosen ?? list[0];
+  };
   const costOf = (u: UsageRow) => {
-    const price = priceMap.get(priceKey(u.provider, u.model));
+    const price = priceFor(u);
     if (!price) return 0;
     return (
       ((u.input_tokens || 0) / 1_000_000) * price.input +
@@ -195,19 +221,20 @@ export type SubmissionRow = {
   readiness: string | null;
   flags: string[];
   createdAt: string;
-  output: unknown;
-  answers: unknown;
 };
 
 export async function getRecentSubmissions(limit = 100): Promise<SubmissionRow[]> {
   const supabase = createSupabaseAdminClient();
-  const { data } = await supabase
+  // Summary columns only. The heavy output/answers JSON is loaded lazily per row
+  // (getSubmissionDetail) when a details dialog opens, keeping this payload small.
+  const { data, error } = await supabase
     .from("submissions")
     .select(
-      "id, name, email, source, assessment, created_at, output, answers, roadmap:roadmaps(title)",
+      "id, name, email, source, assessment, created_at, roadmap:roadmaps(title)",
     )
     .order("created_at", { ascending: false })
     .limit(limit);
+  if (error) throw new Error(`Failed to load submissions: ${error.message}`);
   return (data ?? []).map((s) => {
     const assessment = (s.assessment ?? {}) as {
       readinessState?: string;
@@ -223,8 +250,23 @@ export async function getRecentSubmissions(limit = 100): Promise<SubmissionRow[]
       readiness: assessment.readinessState ?? null,
       flags: assessment.flags ?? [],
       createdAt: s.created_at as string,
-      output: s.output,
-      answers: s.answers,
     };
   });
+}
+
+export type SubmissionDetail = { output: unknown; answers: unknown };
+
+/** Lazily fetch a single submission's heavy fields for the details view. */
+export async function getSubmissionDetail(
+  id: string,
+): Promise<SubmissionDetail | null> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("submissions")
+    .select("output, answers")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load submission ${id}: ${error.message}`);
+  if (!data) return null;
+  return { output: data.output, answers: data.answers };
 }

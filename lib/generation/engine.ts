@@ -7,7 +7,7 @@ import type {
   RoadmapConfig,
 } from "@/lib/config-schema";
 import { coerceOutput } from "./coerce";
-import { generate, type GenUsage } from "./providers";
+import { generate, GenerationError, type GenUsage } from "./providers";
 import { scoreAssessment } from "./scoring";
 import { extractJson } from "./text";
 
@@ -85,6 +85,11 @@ export async function runGeneration(
     modelParams: config.modelParams,
   });
   const parsed = extractJson(result.text);
+  // Reject unparseable output rather than coercing it into blank defaults that
+  // would be persisted and served as if generation had succeeded.
+  if (parsed === null) {
+    throw new GenerationError("The model did not return usable JSON output.", 502);
+  }
   const output = coerceOutput(parsed, config.outputSchema, input.answers);
   return { output, assessment, usage: result.usage };
 }

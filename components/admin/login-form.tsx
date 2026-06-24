@@ -12,7 +12,16 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/instructor";
+  // Only accept same-origin relative paths; reject absolute or protocol-relative
+  // URLs so ?next= can't be used as an open redirect.
+  const rawNext = params.get("next");
+  const next =
+    rawNext &&
+    rawNext.startsWith("/") &&
+    !rawNext.startsWith("//") &&
+    !rawNext.startsWith("/\\")
+      ? rawNext
+      : "/instructor";
   const supabase = createSupabaseBrowserClient();
 
   const [email, setEmail] = useState("");

@@ -38,17 +38,22 @@ export function RoadmapEditor({
 
   async function onSave() {
     setSaving(true);
-    const res = await saveRoadmap(config);
-    setSaving(false);
-    if (!res.ok) {
-      toast.error(res.error || "Could not save.");
-      return;
-    }
-    toast.success("Saved.");
-    if (isNew && res.id) {
-      router.push(`/instructor/roadmaps/${res.id}`);
-    } else {
-      router.refresh();
+    try {
+      const res = await saveRoadmap(config);
+      if (!res.ok) {
+        toast.error(res.error || "Could not save.");
+        return;
+      }
+      toast.success("Saved.");
+      if (isNew && res.id) {
+        router.push(`/instructor/roadmaps/${res.id}`);
+      } else {
+        router.refresh();
+      }
+    } catch {
+      toast.error("Could not save. Please try again.");
+    } finally {
+      setSaving(false);
     }
   }
 

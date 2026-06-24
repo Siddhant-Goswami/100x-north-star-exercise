@@ -138,6 +138,11 @@ create policy "profiles_select" on public.profiles for select to authenticated
   using (id = auth.uid() or public.current_app_role() = 'super_admin');
 create policy "profiles_update_self" on public.profiles for update to authenticated
   using (id = auth.uid()) with check (id = auth.uid());
+-- Column-level grant: a self-update may only touch non-privileged fields.
+-- RLS gates the row; this gates the columns, so role/is_active cannot be
+-- self-escalated. Privileged changes go through the service role.
+revoke update on public.profiles from authenticated;
+grant update (email, full_name) on public.profiles to authenticated;
 
 create policy "roadmaps_owner_all" on public.roadmaps for all to authenticated
   using (owner_id = auth.uid() or public.current_app_role() = 'super_admin')

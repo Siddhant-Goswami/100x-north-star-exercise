@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { loadSubmissionDetail } from "@/app/admin/actions";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -16,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { SubmissionRow } from "@/lib/admin-stats";
+import type { SubmissionDetail, SubmissionRow } from "@/lib/admin-stats";
 
 function when(iso: string): string {
   return iso.slice(0, 16).replace("T", " ");
@@ -24,6 +25,22 @@ function when(iso: string): string {
 
 export function SubmissionsTable({ rows }: { rows: SubmissionRow[] }) {
   const [active, setActive] = useState<SubmissionRow | null>(null);
+  const [detail, setDetail] = useState<SubmissionDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function openDetail(r: SubmissionRow) {
+    setActive(r);
+    setDetail(null);
+    setLoading(true);
+    try {
+      const d = await loadSubmissionDetail(r.id);
+      setDetail(d ?? { output: null, answers: null });
+    } catch {
+      setDetail({ output: "Failed to load.", answers: null });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <>
@@ -50,8 +67,17 @@ export function SubmissionsTable({ rows }: { rows: SubmissionRow[] }) {
             {rows.map((r) => (
               <TableRow
                 key={r.id}
-                className="cursor-pointer"
-                onClick={() => setActive(r)}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open submission from ${r.name ?? "unknown"}`}
+                className="cursor-pointer focus-visible:bg-accent focus-visible:outline-none"
+                onClick={() => openDetail(r)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openDetail(r);
+                  }
+                }}
               >
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {when(r.createdAt)}
@@ -77,7 +103,15 @@ export function SubmissionsTable({ rows }: { rows: SubmissionRow[] }) {
         </Table>
       </div>
 
-      <Dialog open={!!active} onOpenChange={(o) => !o && setActive(null)}>
+      <Dialog
+        open={!!active}
+        onOpenChange={(o) => {
+          if (!o) {
+            setActive(null);
+            setDetail(null);
+          }
+        }}
+      >
         <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{active?.name ?? "Submission"}</DialogTitle>
@@ -88,22 +122,28 @@ export function SubmissionsTable({ rows }: { rows: SubmissionRow[] }) {
                 {active.email ?? "no email"} · {active.roadmapTitle} ·{" "}
                 {when(active.createdAt)}
               </p>
-              <div>
-                <p className="mb-1 font-mono text-xs uppercase tracking-wide text-primary">
-                  Generated output
-                </p>
-                <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-                  {JSON.stringify(active.output, null, 2)}
-                </pre>
-              </div>
-              <div>
-                <p className="mb-1 font-mono text-xs uppercase tracking-wide text-primary">
-                  Answers
-                </p>
-                <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-                  {JSON.stringify(active.answers, null, 2)}
-                </pre>
-              </div>
+              {loading || !detail ? (
+                <p className="text-muted-foreground">Loading…</p>
+              ) : (
+                <>
+                  <div>
+                    <p className="mb-1 font-mono text-xs uppercase tracking-wide text-primary">
+                      Generated output
+                    </p>
+                    <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+                      {JSON.stringify(detail.output, null, 2)}
+                    </pre>
+                  </div>
+                  <div>
+                    <p className="mb-1 font-mono text-xs uppercase tracking-wide text-primary">
+                      Answers
+                    </p>
+                    <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+                      {JSON.stringify(detail.answers, null, 2)}
+                    </pre>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </DialogContent>

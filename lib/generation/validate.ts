@@ -29,9 +29,11 @@ export function sanitizeAnswers(
     const value = answers[key];
     if (value === undefined || value === null) continue;
     if (q.type === "multi") {
-      clean[key] = Array.isArray(value)
-        ? value.map((v) => String(v)).slice(0, 50)
-        : [String(value)];
+      const arr = Array.isArray(value) ? value : [value];
+      clean[key] = arr
+        .map((v) => String(v).trim())
+        .filter((v) => v.length > 0)
+        .slice(0, 50);
     } else {
       clean[key] = Array.isArray(value)
         ? value.map((v) => String(v)).join(", ")

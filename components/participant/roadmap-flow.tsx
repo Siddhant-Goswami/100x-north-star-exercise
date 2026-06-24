@@ -11,6 +11,7 @@ import type {
   Answers,
   GeneratedOutput,
   PublicRoadmapConfig,
+  Question,
 } from "@/lib/config-schema";
 import { isOtherValue, QuestionField } from "./question-field";
 import { OutputRenderer } from "./output-renderer";
@@ -54,7 +55,7 @@ export function RoadmapFlow({ config }: { config: PublicRoadmapConfig }) {
         const saved = JSON.parse(raw);
         if (saved.answers) setAnswers(saved.answers);
         if (saved.otherTexts) setOtherTexts(saved.otherTexts);
-        if (saved.contact) setContact((c) => ({ ...c, ...saved.contact }));
+        // Contact PII (name/email/phone) is never persisted or restored.
         startedAt.current = saved.startedAt || Date.now();
       } else {
         startedAt.current = Date.now();
@@ -65,33 +66,43 @@ export function RoadmapFlow({ config }: { config: PublicRoadmapConfig }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist progress.
+  // Persist progress only — never contact PII.
   useEffect(() => {
     if (!startedAt.current) return;
     try {
       localStorage.setItem(
         storageKey,
-        JSON.stringify({ answers, otherTexts, contact, startedAt: startedAt.current }),
+        JSON.stringify({ answers, otherTexts, startedAt: startedAt.current }),
       );
     } catch {
       /* ignore quota errors */
     }
-  }, [answers, otherTexts, contact, storageKey]);
+  }, [answers, otherTexts, storageKey]);
 
   const isLanding = stepIndex === 0;
   const isContact = stepIndex === lastIndex;
   const currentQuestion = !isLanding && !isContact ? questions[stepIndex - 1] : null;
 
-  function isAnswered(key: string): boolean {
-    const v = answers[key];
-    return Array.isArray(v) ? v.length > 0 : String(v ?? "").trim().length > 0;
+  function isAnswered(q: Question): boolean {
+    const v = answers[q.questionKey];
+    const hasOtherText = (otherTexts[q.questionKey] ?? "").trim().length > 0;
+    if (Array.isArray(v)) {
+      if (v.length === 0) return false;
+      // A bare "Other" selection isn't answered until its free-text is filled.
+      if (q.allowOther && v.every(isOtherValue)) return hasOtherText;
+      return true;
+    }
+    const s = String(v ?? "").trim();
+    if (s.length === 0) return false;
+    if (q.allowOther && isOtherValue(s)) return hasOtherText;
+    return true;
   }
 
   function goNext() {
     setError(null);
     if (currentQuestion) {
       const q = currentQuestion;
-      if (q.required && !isAnswered(q.questionKey)) {
+      if (q.required && !isAnswered(q)) {
         setError("Please answer this to continue.");
         return;
       }
@@ -127,10 +138,17 @@ export function RoadmapFlow({ config }: { config: PublicRoadmapConfig }) {
       let value = answers[q.questionKey];
       if (value === undefined) continue;
       const other = otherTexts[q.questionKey]?.trim();
-      if (q.allowOther && other) {
-        if (typeof value === "string" && isOtherValue(value)) value = other;
-        else if (Array.isArray(value))
-          value = value.map((v) => (isOtherValue(v) ? other : v));
+      if (q.allowOther) {
+        if (typeof value === "string" && isOtherValue(value)) {
+          // Drop a bare "Other" with no free-text instead of emitting the sentinel.
+          if (!other) continue;
+          value = other;
+        } else if (Array.isArray(value)) {
+          value = value
+            .map((v) => (isOtherValue(v) ? other : v))
+            .filter((v): v is string => !!v);
+          if (value.length === 0) continue;
+        }
       }
       result[q.questionKey] = value;
     }
@@ -178,6 +196,11 @@ export function RoadmapFlow({ config }: { config: PublicRoadmapConfig }) {
         setServerError(data.error || "Something went wrong. Please try again.");
         setStatus("error");
         return;
+      }
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {
+        /* ignore */
       }
       setOutput(data.output as GeneratedOutput);
       setStatus("done");

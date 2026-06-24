@@ -35,6 +35,12 @@ body{overflow-x:hidden}
 .promise:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
 .promise b{font-family:var(--font-display);display:block;margin-bottom:5px;font-weight:600}
 .promise span{font-size:13px;color:var(--fg-2);line-height:1.5}
+.proof-stat{font-size:15px;color:var(--fg-2);margin:30px auto 0;max-width:620px;font-weight:500;line-height:1.5}
+.proof-card{margin:16px auto 0;max-width:560px;border:1px solid var(--border);border-radius:var(--r-lg);padding:18px 20px;background:var(--surface-1);text-align:left}
+.proof-tag{display:block;font:600 11px/1 var(--font-display);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:9px}
+.proof-card p{margin:0 0 9px;font-size:15px;line-height:1.5;color:var(--fg)}
+.proof-card figcaption{font-size:13px;color:var(--fg-2)}
+.proof-card figcaption b{color:var(--fg);font-family:var(--font-display);font-weight:600}
 .callout{display:flex;gap:14px;background:var(--accent-tint);border:1px solid var(--accent-soft);border-radius:var(--r-lg);padding:20px;margin:26px 0}
 .callout-icon{width:32px;height:32px;display:grid;place-items:center;background:var(--accent);border-radius:10px;flex:0 0 auto;font-weight:700}
 .callout p{margin:0;color:var(--fg-2)}

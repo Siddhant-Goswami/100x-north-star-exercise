@@ -384,9 +384,31 @@ function coerceRoadmap(raw: unknown, answers: Record<string, unknown>, name: str
   };
 }
 
-async function generateRoadmapWithOpenAI(answers: Record<string, unknown>, name: string): Promise<Roadmap | null> {
+// What one real OpenAI call cost us, in tokens. Logged to llm_usage_events so
+// the admin panel can price it against current per-token rates. `success` is
+// false when we hit the API but it errored, so failures still show up in cost
+// review (a 4xx storm is cheap but worth seeing).
+type LlmUsage = {
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  success: boolean;
+};
+
+type RoadmapResult = { roadmap: Roadmap | null; usage: LlmUsage | null };
+
+function readUsage(data: Record<string, unknown>, success: boolean): LlmUsage {
+  const usage = (data && typeof data.usage === 'object' ? data.usage : {}) as Record<string, unknown>;
+  const input = Number(usage.input_tokens) || 0;
+  const output = Number(usage.output_tokens) || 0;
+  const total = Number(usage.total_tokens) || input + output;
+  return { model: openAiModel, input_tokens: input, output_tokens: output, total_tokens: total, success };
+}
+
+async function generateRoadmapWithOpenAI(answers: Record<string, unknown>, name: string): Promise<RoadmapResult> {
   const openAiKey = getOpenAiKey();
-  if (!openAiKey) return null;
+  if (!openAiKey) return { roadmap: null, usage: null };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 60_000);
   try {
@@ -408,22 +430,23 @@ async function generateRoadmapWithOpenAI(answers: Record<string, unknown>, name:
     });
     if (!response.ok) {
       console.error('openai roadmap request failed', response.status, await response.text().catch(() => ''));
-      return null;
+      return { roadmap: null, usage: { model: openAiModel, input_tokens: 0, output_tokens: 0, total_tokens: 0, success: false } };
     }
     const data = await response.json();
+    const usage = readUsage(data, true);
     const text = extractOutputText(data);
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return null;
+    if (!match) return { roadmap: null, usage };
     let parsed: unknown;
     try {
       parsed = JSON.parse(match[0]);
     } catch {
-      return null;
+      return { roadmap: null, usage };
     }
-    return coerceRoadmap(parsed, answers, name);
+    return { roadmap: coerceRoadmap(parsed, answers, name), usage };
   } catch (error) {
     console.error('openai roadmap call errored', error);
-    return null;
+    return { roadmap: null, usage: { model: openAiModel, input_tokens: 0, output_tokens: 0, total_tokens: 0, success: false } };
   } finally {
     clearTimeout(timer);
   }
@@ -545,9 +568,12 @@ Deno.serve(async (request) => {
 
   // 3) Generate. LLM when allowed and configured, deterministic otherwise.
   let freshlyGenerated = false;
+  let llmUsage: LlmUsage | null = null;
   if (!roadmap) {
     if (!rateLimited && getOpenAiKey()) {
-      roadmap = await generateRoadmapWithOpenAI(answers, name);
+      const result = await generateRoadmapWithOpenAI(answers, name);
+      roadmap = result.roadmap;
+      llmUsage = result.usage;
     }
     if (!roadmap) roadmap = buildRoadmap(answers, name);
     freshlyGenerated = true;
@@ -589,6 +615,25 @@ Deno.serve(async (request) => {
   if (error) {
     console.error('north star submission failed', error);
     return json({ error: 'Your exercise could not be saved. Please retry.' }, 500);
+  }
+
+  // Best-effort cost log: one row per real OpenAI call we made on this request.
+  // Never let a logging hiccup affect the user's response.
+  if (llmUsage) {
+    try {
+      await supabase.from('llm_usage_events').insert({
+        exercise_id: exerciseId,
+        submission_id: data.id,
+        source: 'roadmap',
+        model: llmUsage.model,
+        input_tokens: llmUsage.input_tokens,
+        output_tokens: llmUsage.output_tokens,
+        total_tokens: llmUsage.total_tokens,
+        success: llmUsage.success
+      });
+    } catch (logError) {
+      console.error('llm usage log failed', logError);
+    }
   }
 
   return json({ id: data.id, assessment, fitSignals, roadmap });

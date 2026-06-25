@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { RoadmapConfig } from "@/lib/config-schema";
+import { AiBuildTab } from "./editors/ai-build-tab";
 import { BasicsTab } from "./editors/basics-tab";
 import { GenerationTab } from "./editors/generation-tab";
 import { IntroCtaTab } from "./editors/intro-cta-tab";
@@ -110,6 +111,7 @@ export function RoadmapEditor({
           <TabsTrigger value="generation">Generation</TabsTrigger>
           <TabsTrigger value="scoring">Scoring</TabsTrigger>
           <TabsTrigger value="introcta">Intro &amp; CTA</TabsTrigger>
+          <TabsTrigger value="aibuild">AI build</TabsTrigger>
           <TabsTrigger value="test">Test</TabsTrigger>
         </TabsList>
 
@@ -131,6 +133,9 @@ export function RoadmapEditor({
           </TabsContent>
           <TabsContent value="introcta">
             <IntroCtaTab config={config} patch={patch} />
+          </TabsContent>
+          <TabsContent value="aibuild">
+            <AiBuildTab config={config} patch={patch} />
           </TabsContent>
           <TabsContent value="test">
             <TestTab config={config} isNew={isNew} />

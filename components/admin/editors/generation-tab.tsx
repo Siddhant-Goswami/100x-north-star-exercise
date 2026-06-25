@@ -14,9 +14,11 @@ import { PROVIDERS } from "@/lib/config-schema";
 import type { TabProps } from "../roadmap-editor";
 import { AreaField, NumberField } from "./fields";
 
+// Groq is the default for now; list its models first. The first entry per
+// provider is auto-selected when an instructor switches providers.
 const MODEL_SUGGESTIONS: Record<string, string[]> = {
+  groq: ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "llama-3.1-8b-instant"],
   openai: ["gpt-5.4-mini", "gpt-5.4"],
-  groq: ["llama-3.3-70b-versatile"],
   openrouter: ["openai/gpt-5.4-mini", "anthropic/claude-sonnet-4.6"],
   anthropic: ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"],
 };

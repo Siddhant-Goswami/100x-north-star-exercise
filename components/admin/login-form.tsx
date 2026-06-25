@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -8,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getSiteUrl } from "@/lib/site-url";
 
 export function LoginForm() {
   const router = useRouter();
@@ -43,7 +45,12 @@ export function LoginForm() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: {
+        data: { full_name: fullName },
+        // Send the confirmation link to a route that actually completes the
+        // PKCE exchange, anchored to our canonical URL (not Supabase's Site URL).
+        emailRedirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(next)}`,
+      },
     });
     setBusy(false);
     if (error) return toast.error(error.message);
@@ -72,6 +79,7 @@ export function LoginForm() {
           <Field label="Email" id="email-in" type="email" value={email} onChange={setEmail} />
           <Field label="Password" id="pass-in" type="password" value={password} onChange={setPassword} />
           <Button className="w-full" disabled={busy} onClick={signIn}>
+            {busy && <Loader2 className="animate-spin" />}
             {busy ? "Signing in…" : "Sign in"}
           </Button>
         </TabsContent>
@@ -81,6 +89,7 @@ export function LoginForm() {
           <Field label="Email" id="email-up" type="email" value={email} onChange={setEmail} />
           <Field label="Password" id="pass-up" type="password" value={password} onChange={setPassword} />
           <Button className="w-full" disabled={busy} onClick={signUp}>
+            {busy && <Loader2 className="animate-spin" />}
             {busy ? "Creating…" : "Create account"}
           </Button>
         </TabsContent>

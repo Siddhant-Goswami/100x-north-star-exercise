@@ -166,7 +166,9 @@ export type Cta = z.infer<typeof CtaSchema>;
 
 /* ----------------------------- Provider ----------------------------- */
 
-export const PROVIDERS = ["openai", "groq", "openrouter", "anthropic"] as const;
+// Groq is the default provider for now — list it first so it's the suggested
+// pick in the builder. The others stay available for instructors who need them.
+export const PROVIDERS = ["groq", "openai", "openrouter", "anthropic"] as const;
 export const ProviderSchema = z.enum(PROVIDERS);
 export type Provider = (typeof PROVIDERS)[number];
 
@@ -186,8 +188,8 @@ export const RoadmapConfigSchema = z.object({
   description: z.string().nullable().optional(),
   status: RoadmapStatusSchema.default("draft"),
   // generation config (server-only — never sent to the browser)
-  provider: ProviderSchema.default("openai"),
-  model: z.string().min(1).default("gpt-5.4-mini"),
+  provider: ProviderSchema.default("groq"),
+  model: z.string().min(1).default("llama-3.3-70b-versatile"),
   systemPrompt: z.string().default(""),
   enableWebSearch: z.boolean().default(false),
   maxOutputTokens: z.number().int().positive().default(2200),
